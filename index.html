@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
-/* Layout: one-screen console — top bar, left exam explorer + queue, right viewer segments over the parameter card, status line. Deliberately dark single theme, like a scanner console. */
+/* Layout: one-screen console. Patient task = worklist + registration. Exam task = left explorer/queue, right 3 localizer segments over preview + series, parameter card, status line. Deliberately dark single theme, like a scanner console. */
 :root{
   color-scheme: dark;
   --bg:#141719; --panel:#1d2124; --panel2:#24292d; --field:#0f1214; --line:#353c42; --line2:#454d54;
@@ -32,8 +32,9 @@ button,select,input{font:inherit;color:inherit}
 .brand b{font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px}
 .brand span{color:var(--muted);font-size:12px}
 .task{display:flex;gap:2px}
-.task span{padding:3px 10px;border:1px solid var(--line);color:var(--muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
-.task span.on{background:var(--sel);color:var(--sel-fg);border-color:var(--sel)}
+.task button{padding:3px 12px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.task button[aria-pressed="true"]{background:var(--sel);color:var(--sel-fg);border-color:var(--sel)}
+.task button:disabled{opacity:.4;cursor:default}
 .pat{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .pat b{color:var(--fg);font-weight:500}
 .ctl{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -45,13 +46,35 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 @keyframes blink{50%{opacity:.25}}
 .tbtn{background:var(--panel2);border:1px solid var(--line2);padding:3px 9px;cursor:pointer}
 .tbtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
-/* main */
-.main{display:grid;grid-template-columns:290px minmax(0,1fr);gap:6px;min-height:0}
-.left{display:grid;grid-template-rows:auto minmax(0,1fr);gap:6px;min-height:0}
+/* panels */
 .panel{background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line);background:var(--panel2)}
 .ph h2{margin:0;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .ph .path{font-family:var(--mono);font-size:11px;color:var(--fg)}
+.btn{background:var(--panel2);border:1px solid var(--line2);padding:5px 12px;cursor:pointer;font-size:12px;letter-spacing:.03em}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.go{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600;min-width:64px}
+.btn.stop{border-color:var(--err);color:var(--err)}
+/* patient task */
+.ptask{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:6px;min-height:0}
+.wl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.wlw{overflow:auto}
+.wl th{text-align:left;font:600 11px var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.wl td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.wl tbody tr{cursor:pointer}
+.wl tbody tr:hover{background:var(--panel2)}
+.wl tbody tr.sel{background:var(--sel);color:var(--sel-fg)}
+.wlnote{padding:8px;color:var(--dim);font-size:12px}
+.reg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 18px;padding:12px;align-content:start;overflow:auto}
+.reg .fld{grid-template-columns:120px minmax(0,1fr)}
+.reg input,.reg select{width:100%;background:var(--field);border:1px solid var(--line2);padding:4px 6px;font:12.5px var(--mono);color-scheme:dark}
+.reg input[aria-invalid="true"]{border-color:var(--err)}
+.regact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);flex-wrap:wrap}
+.regact span{color:var(--muted);font-size:12px}
+/* exam task */
+.main{display:grid;grid-template-columns:290px minmax(0,1fr);gap:6px;min-height:0}
+.left{display:grid;grid-template-rows:auto minmax(0,1fr);gap:6px;min-height:0}
 .lib{list-style:none;margin:0;padding:3px 0;max-height:190px;overflow:auto}
 .lib li{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:3px 8px;font-family:var(--mono);font-size:12px}
 .lib li:hover{background:var(--panel2)}
@@ -67,34 +90,33 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 .dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--muted)}
 .qi.done .dot{background:var(--ok);border-color:var(--ok)}
 .qi.running .dot{background:var(--accent);border-color:var(--accent);animation:blink 1s steps(2) infinite}
-.qbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:transparent}
+.qbar{position:absolute;left:0;right:0;bottom:0;height:3px}
 .qbar i{display:block;height:100%;background:var(--accent);width:0}
 .qfoot{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--muted);flex-wrap:wrap}
 .qact{display:flex;gap:4px;padding:6px 8px;border-top:1px solid var(--line);flex-wrap:wrap}
-.btn{background:var(--panel2);border:1px solid var(--line2);padding:5px 12px;cursor:pointer;font-size:12px;letter-spacing:.03em}
-.btn:hover:not(:disabled){border-color:var(--muted)}
-.btn:disabled{opacity:.4;cursor:default}
-.btn.go{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600;min-width:64px}
-.btn.stop{border-color:var(--err);color:var(--err)}
-/* right column */
 .right{display:grid;grid-template-rows:minmax(0,1fr) auto;gap:6px;min-height:0}
-.viewer{display:grid;grid-template-columns:1fr 1fr;gap:4px;min-height:0;background:var(--line)}
-.seg{position:relative;background:#000;min-height:0;overflow:hidden;border:1px solid transparent}
+.viewer{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1.45fr);gap:4px;min-height:0;background:var(--line)}
+.seg{position:relative;background:#000;min-height:0;overflow:hidden;border:1px solid transparent;grid-column:span 2}
+.seg.big{grid-column:span 3}
 .seg.act{border-color:var(--accent)}
 .seg canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+.seg canvas.grab{cursor:move}.seg canvas.rot{cursor:alias}
 .ov{position:absolute;font:11px/1.3 var(--mono);color:var(--ovl);text-shadow:0 0 2px #000,0 0 2px #000;pointer-events:none;white-space:pre;font-variant-numeric:tabular-nums}
+.seg.loc .ov{font-size:10px}
 .ov.tl{top:6px;left:8px}.ov.tr{top:6px;right:8px;text-align:right}
 .ov.bl{bottom:6px;left:8px}.ov.br{bottom:30px;right:8px;text-align:right}
+.seg.loc .ov.br{bottom:6px}
 .ori{position:absolute;font:600 12px var(--mono);color:var(--ovl);text-shadow:0 0 2px #000;pointer-events:none}
 .ori.l{left:6px;top:50%}.ori.r{right:6px;top:50%}.ori.t{top:4px;left:50%}.ori.b{bottom:4px;left:50%}
-.tag{position:absolute;top:6px;left:50%;transform:translateX(-50%);font:600 10px var(--mono);letter-spacing:.12em;padding:2px 7px;border:1px solid var(--accent);color:var(--accent);background:rgba(0,0,0,.55)}
+.tag{position:absolute;top:6px;left:50%;transform:translateX(-50%);font:600 10px var(--mono);letter-spacing:.12em;padding:2px 7px;border:1px solid var(--accent);color:var(--accent);background:rgba(0,0,0,.55);white-space:nowrap}
 .tag.ser{border-color:var(--ok);color:var(--ok)}
+.tag.lc{border-color:var(--line2);color:var(--muted)}
 .snav{position:absolute;right:6px;bottom:6px;display:flex;gap:3px}
 .snav button{width:24px;height:20px;background:rgba(30,34,37,.85);border:1px solid var(--line2);cursor:pointer;font:11px var(--mono);padding:0}
 .empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-family:var(--mono);font-size:12px;text-align:center;padding:16px}
 /* parameter card */
 .card{background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.chead{display:flex;align-items:stretch;gap:0;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+.chead{display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
 .pname{padding:6px 12px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;border-right:1px solid var(--line)}
 .badge{font:500 10px var(--ui);letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border:1px solid var(--line2);color:var(--muted)}
 .badge.pending{border-color:var(--sel);color:#9cc3e6}
@@ -134,13 +156,13 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 .msg.warn{color:var(--warn)}.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
 .help{color:var(--dim);font-size:11.5px}
 @media (max-width:980px){
-  body{height:auto}
-  .app{height:auto}
-  .main{grid-template-columns:1fr}
+  body,.app{height:auto}
+  .main,.ptask{grid-template-columns:1fr}
   .left{order:2}
   .right{grid-template-rows:auto auto}
-  .viewer{grid-template-columns:1fr;height:auto}
-  .seg{height:min(86vw,520px)}
+  .viewer{grid-template-rows:auto auto auto}
+  .seg{height:min(31vw,220px)}
+  .seg.big{grid-column:span 6;height:min(86vw,520px)}
   .queue{max-height:320px}
   .fld{grid-template-columns:120px minmax(0,1fr) 44px}
   .ctl{margin-left:0}
@@ -154,10 +176,11 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 <div class="app">
   <header class="top">
     <div class="brand"><b>MR Console</b><span>Simulador de entrenamiento</span></div>
-    <div class="task" aria-label="Tarea"><span>Patient</span><span class="on">Exam</span><span>Viewing</span></div>
-    <div class="pat" title="Paciente de ejemplo">
-      <span><b>SIMULADO^PACIENTE</b></span><span>ID SIM-0001</span><span>M · 45a · 72 kg</span><span>Head first · Supine</span><span>Head/Neck 20</span>
+    <div class="task" aria-label="Tarea">
+      <button type="button" id="tPatient" aria-pressed="true">Patient</button>
+      <button type="button" id="tExam" aria-pressed="false" disabled>Exam</button>
     </div>
+    <div class="pat" id="patBar"><span>Sin paciente registrado</span></div>
     <div class="ctl">
       <label for="b0">Campo <select id="b0"><option value="1.5">1.5 T</option><option value="3">3 T</option></select></label>
       <label for="path">Fantoma <select id="path"><option value="normal">Cerebro normal</option><option value="ms">Lesiones de sustancia blanca (EM)</option><option value="stroke">Infarto agudo ACM izquierda</option></select></label>
@@ -166,7 +189,35 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
     </div>
   </header>
 
-  <div class="main">
+  <!-- PATIENT TASK -->
+  <div class="ptask" id="viewPatient">
+    <section class="panel">
+      <div class="ph"><h2>Worklist · Scheduler</h2><span class="path" id="wlDate"></span></div>
+      <div class="wlw"><table class="wl"><thead><tr><th>Paciente</th><th>ID</th><th>Sexo</th><th>Nac.</th><th>Procedimiento</th><th>Hora</th></tr></thead><tbody id="wlBody"></tbody></table></div>
+      <div class="wlnote">Lista de trabajo de ejemplo con pacientes ficticios. Al elegir uno se llena el formulario y el fantoma sigue la indicación del examen; puedes cambiar ambos.</div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>Patient Registration</h2><span class="path">Head › Brain</span></div>
+      <form class="reg" id="regForm" novalidate>
+        <div class="fld"><label class="lbl" for="rLast">Last name</label><input id="rLast" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rFirst">First name</label><input id="rFirst" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rId">Patient ID</label><input id="rId" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rDob">Date of birth</label><input id="rDob" type="date"></div>
+        <div class="fld"><label class="lbl" for="rSex">Sex</label><select id="rSex"><option value="F">Female</option><option value="M">Male</option><option value="O">Other</option></select></div>
+        <div class="fld"><label class="lbl" for="rHeight">Height (m)</label><input id="rHeight" inputmode="decimal"></div>
+        <div class="fld"><label class="lbl" for="rWeight">Weight (kg)</label><input id="rWeight" inputmode="decimal"></div>
+        <div class="fld"><label class="lbl" for="rRef">Referring phys.</label><input id="rRef" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rProc">Procedure</label><input id="rProc" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rPos">Patient position</label><select id="rPos"><option>Head First-Supine</option></select></div>
+        <div class="fld"><label class="lbl" for="rCoil">Coil</label><select id="rCoil"><option>Head/Neck 20</option></select></div>
+        <div class="fld"><label class="lbl" for="rProg">Program</label><select id="rProg"><option>Head › Brain › Routine</option></select></div>
+      </form>
+      <div class="regact"><span id="regHint">Peso y estatura son obligatorios: el sistema los usa para el SAR.</span><button class="btn go" id="regBtn" type="button">Exam</button></div>
+    </section>
+  </div>
+
+  <!-- EXAM TASK -->
+  <div class="main" id="viewExam" hidden>
     <aside class="left">
       <section class="panel">
         <div class="ph"><h2>Program Library</h2><span class="path">Head › Brain</span></div>
@@ -178,6 +229,7 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
         <div class="qfoot"><span id="qtime">—</span><span id="qnow"></span></div>
         <div class="qact">
           <button class="btn" id="rep" type="button">Repetir</button>
+          <button class="btn" id="cpy" type="button" title="Copia posición y angulación de la última serie medida">Copiar posición</button>
           <button class="btn" id="del" type="button">Eliminar</button>
         </div>
       </section>
@@ -185,20 +237,26 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 
     <section class="right">
       <div class="viewer" id="viewer">
-        <div class="seg act" id="segA">
+        <div class="seg loc" id="segSag"><canvas aria-label="Localizer sagital"></canvas><span class="tag lc">SAG</span>
+          <div class="ov tl"></div><div class="ov br"></div><span class="ori l">A</span><span class="ori r">P</span><span class="ori t">H</span><span class="ori b">F</span><div class="empty">Mide el localizer</div></div>
+        <div class="seg loc" id="segCor"><canvas aria-label="Localizer coronal"></canvas><span class="tag lc">COR</span>
+          <div class="ov tl"></div><div class="ov br"></div><span class="ori l">R</span><span class="ori r">L</span><span class="ori t">H</span><span class="ori b">F</span><div class="empty">Mide el localizer</div></div>
+        <div class="seg loc" id="segTra"><canvas aria-label="Localizer transversal"></canvas><span class="tag lc">TRA</span>
+          <div class="ov tl"></div><div class="ov br"></div><span class="ori l">R</span><span class="ori r">L</span><span class="ori t">A</span><span class="ori b">P</span><div class="empty">Mide el localizer</div></div>
+        <div class="seg big act" id="segA">
           <canvas aria-label="Vista previa del protocolo abierto"></canvas>
           <span class="tag">VISTA PREVIA</span>
           <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
           <span class="ori l">R</span><span class="ori r">L</span><span class="ori t">A</span><span class="ori b">P</span>
           <div class="snav"><button type="button" data-s="-1" aria-label="Corte anterior">‹</button><button type="button" data-s="1" aria-label="Corte siguiente">›</button></div>
         </div>
-        <div class="seg" id="segB">
+        <div class="seg big" id="segB">
           <canvas aria-label="Serie adquirida"></canvas>
           <span class="tag ser">SERIE</span>
           <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
           <span class="ori l">R</span><span class="ori r">L</span><span class="ori t">A</span><span class="ori b">P</span>
           <div class="snav"><button type="button" data-s="-1" aria-label="Corte anterior">‹</button><button type="button" data-s="1" aria-label="Corte siguiente">›</button></div>
-          <div class="empty" id="emptyB" hidden>Sin serie seleccionada</div>
+          <div class="empty" id="emptyB">Sin serie medida</div>
         </div>
       </div>
 
@@ -215,7 +273,7 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 
   <footer class="status">
     <span class="msg" id="msg">Ready.</span>
-    <span class="help">Imagen: arrastrar ←→ ventana, ↑↓ centro · rueda o ‹ › cambia corte · doble clic ventana automática</span>
+    <span class="help" id="help">Elige un paciente de la worklist o completa el registro y presiona Exam.</span>
   </footer>
 </div>
 
@@ -225,106 +283,115 @@ const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const f1=v=>(Math.round(v*10)/10).toFixed(1);
 const fmtTA=ms=>{const s=Math.round(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+const dot3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 
 /* ---------- tissue table: PD, T1, T2, T2*, ADC(x1e-3) at 1.5 T ---------- */
 // 0 air 1 bone 2 fat 3 CSF 4 GM 5 WM 6 lesion 7 muscle/skin 8 vitreous 9 acute infarct
 const TIS=[[0,1,1,1,0],[0.04,500,2,1,0.1],[0.95,260,80,50,0.01],[1,3700,1800,1200,3.0],[0.82,1000,95,55,0.85],[0.70,640,75,45,0.72],[0.86,1150,170,110,1.15],[0.72,870,45,28,1.5],[0.98,3200,900,600,2.6],[0.84,1080,120,70,0.38]];
 function tissues(B0){const T=TIS.map(r=>r.slice());if(B0===3){const m=[1,1,1.42,1.03,1.33,1.3,1.3,1.6,1.08,1.32];T.forEach((r,i)=>{r[1]*=m[i];r[2]*=0.92;r[3]*=0.6;});}return T;}
 
-/* ---------- procedural head phantom (mm, x→patient left, y→posterior, z→head) ---------- */
+/* ---------- procedural head phantom (mm; x→patient left, y→posterior, z→head) ---------- */
 const G=480,RES=0.5,HALF=120;
 const inE=(x,y,cx,cy,a,b)=>{const dx=(x-cx)/a,dy=(y-cy)/b;return dx*dx+dy*dy<=1;};
 const MS=[[12,-24,18,3,6,4],[-13,-22,16,3,5,4],[15,12,22,3,6,5],[-16,16,14,4,4,4],[22,-6,30,3,3,3],[-40,8,34,3,3,3],[7,-12,40,2.5,2.5,3],[-9,22,26,3,7,4],[28,30,8,3,3,3],[-26,-30,44,3,3,3],[18,-30,4,3,4,3]];
-function supra(x,y,z,db,th){
+const in3=(x,y,z,cx,cy,cz,a,b,c)=>{const dx=(x-cx)/a,dy=(y-cy)/b,dz=(z-cz)/c;return dx*dx+dy*dy+dz*dz<=1;};
+function sulcus(th,phi,db){return Math.abs(Math.sin(th*22+phi*16+2.2*Math.sin(th*4+phi*5)+db*0.1));}
+function supra(x,y,z,db,th,rho){
   const ax=Math.abs(x);
-  const cc=z>6&&z<30&&Math.abs(y+2)<34;
-  if(ax<1.3&&!(cc&&db>16))return 3;
-  if(ax<3.4&&!(cc&&db>18))return 4;
-  if(db<15){
-    const fz=z*0.09,w=1-db/15;
-    const sp=Math.abs(Math.sin(th*26+2.2*Math.sin(th*4+fz)+fz*1.7));
+  const cc=((y+2)/36)**2+((z-19)/11)**2<=1;   // corpus callosum / deep midline: no fissure
+  if(ax<1.3&&!cc)return 3;
+  if(ax<3.4&&!cc&&db>1)return 4;
+  const depth=10+5*Math.sin(th*7+z*0.05);
+  if(db<depth){
+    const w=1-db/depth,sp=sulcus(th,Math.atan2(z-5,rho*0.8),db);
     if(sp<0.2*w)return 3;
     if(db<2.6||sp<0.8*Math.sqrt(w))return 4;
   }
-  if(z>=8&&z<=30){const k=1-((z-19)/12)**2;if(k>0&&inE(ax,y,8,-4,5.5*Math.sqrt(k)+1,24*Math.sqrt(k)))return 3;}
-  if(z>=-4&&z<12){
-    if(inE(ax,y,9,-20,5,8))return 3;
-    if(inE(ax,y,16,22,5,9))return 3;
-    if(ax<1.8&&y>-10&&y<12&&z<8)return 3;
-    if(inE(ax,y,15,-16,5.5,8))return 4;
-    if(inE(ax,y,10,5,7.5,10))return 4;
-    if(inE(ax,y,24,-4,4.5,13))return 4;
-    if(inE(ax,y,36,-4,1.4,14))return 3;
-    if(inE(ax,y,33,-4,3,15))return 4;
-  }
-  if(z>=-14&&z<-4&&inE(x,y,0,8,17,15)){
-    if(inE(x,y,0,16,1.4,1.4))return 3;
-    if(inE(x,y,0,8,12,11))return 5;
-    return 3;
+  if(in3(ax,y,z,8,-4,19,6,24,10))return 3;      // lateral ventricle bodies
+  if(in3(ax,y,z,9,-20,6,5,8,8))return 3;        // frontal horns
+  if(in3(ax,y,z,16,22,6,5,9,8))return 3;        // atria
+  if(in3(x,y,z,0,0,-1,1.8,11,8))return 3;       // third ventricle
+  if(in3(ax,y,z,15,-16,6,5.5,8,11))return 4;    // caudate head
+  if(in3(ax,y,z,10,5,1,7.5,10,9))return 4;      // thalamus
+  if(in3(ax,y,z,24,-4,1,4.5,13,9))return 4;     // putamen
+  if(in3(ax,y,z,36,-4,0,1.4,14,12))return 3;    // sylvian fissure
+  if(in3(ax,y,z,33,-4,0,3,15,13))return 4;      // insula
+  if(in3(x,y,z,0,8,-11,17,15,9)){               // midbrain + cisterns
+    if(in3(x,y,z,0,16,-11,1.4,1.4,8))return 3;
+    return in3(x,y,z,0,8,-11,12,11,7)?5:3;
   }
   return 5;
 }
-function infra(x,y,z,db,th){
+function cerebellum(x,y,z){
+  if(Math.abs(x)<1.2&&y>56)return 3;
+  const rr=Math.sqrt(((x)/52)**2+((y-40)/34)**2+((z+32)/22)**2);
+  const fol=Math.abs(Math.sin(rr*30+2.5*Math.sin(Math.atan2(z+32,y-40)*5)+Math.sin(x*0.12)*1.5));
+  if(rr<0.45&&fol>0.3)return 5;
+  if(fol<0.12)return 3;
+  return 4;
+}
+function infra(x,y,z,db,th,rho){
   const ax=Math.abs(x);
-  const pr=z>-38?1:0.75;
-  if(z<-24&&z>-44&&inE(x,y,0,26,6,3.5))return 3;
-  if(inE(x,y,0,10,13*pr,12*pr))return 5;
-  const cz=1-((z+40)/24)**2;
-  if(cz>0&&y>18){
-    const ca=56*Math.sqrt(cz),cb=36*Math.sqrt(cz);
-    if(inE(x,y,0,40,ca,cb)){
-      if(ax<1.5&&y>52)return 3;
-      const rr=Math.hypot(x/ca,(y-40)/cb);
-      const fol=Math.abs(Math.sin(rr*42+Math.atan2(y-40,x)*2));
-      if(rr<0.35&&fol>0.35)return 5;
-      if(fol<0.12)return 3;
-      return 4;
+  if(in3(x,y,z,0,26,-34,6,4,6))return 3;        // fourth ventricle
+  if(in3(x,y,z,0,10,-28,13,12,15))return 5;     // pons
+  if(in3(x,y,z,0,16,-50,8,8,12))return 5;       // medulla
+  if(in3(ax,y,z,40,-10,-24,24,34,17)){          // temporal lobes
+    if(in3(ax,y,z,30,-4,-20,2,8,4))return 3;
+    if(!in3(ax,y,z,40,-10,-24,21,31,14))return 4;
+    const sp=sulcus(th,Math.atan2(z+24,rho*0.8),0);
+    if(sp<0.18)return 3;if(sp<0.6)return 4;return 5;
+  }
+  if(in3(x,y,z,0,12,-26,22,22,24))return 3;     // basal cisterns
+  if(z>-30&&y<34){const sp=sulcus(th,Math.atan2(z+20,rho*0.8),db);return sp<0.18?3:sp<0.6?4:5;}  // inferior frontal/temporal
+  if(y<-30&&ax<24)return 0;                      // paranasal sinuses
+  return 1;                                      // skull base
+}
+function neck(x,y,z){
+  const ax=Math.abs(x),disc=Math.sin(z*0.36)>0.82;
+  if(inE(x,y,0,22,7,7))return inE(x,y,0,22,4.5,4.5)?5:3;   // canal + cord
+  if(inE(x,y,0,4,9,8))return disc?7:2;                      // vertebral body / disc
+  if(inE(ax,y,9,31,6,7))return 1;                          // posterior elements
+  if(inE(x,y,0,-14,7,5))return 0;                          // pharynx
+  if(y<-22)return Math.sin(x*0.3)*Math.sin(y*0.25)>0.6?2:7;
+  return Math.sin(ax*0.35+y*0.1)>0.85?2:7;
+}
+let hzZ=NaN,hz=null;
+function headAt(z){
+  if(z===hzZ)return hz;
+  const s=z<5?Math.sqrt(Math.max(0,1-((z-5)/112)**2)):Math.sqrt(Math.max(0,1-((z-5)/92)**2));
+  const t=clamp((-40-z)/20,0,1);
+  const a=72*s*(1-t)+52*t,b=92*s*(1-t)+60*t,cy=6*t;
+  hzZ=z;hz={s:z<-150?0:(z<5?Math.max(s,t):s),a,b,cy,gcY:-(92*s-16),gz:1-((z+33)/13)**2};return hz;
+}
+function labelPoint(x,y,z,path){
+  const h=headAt(z);if(h.s<0.03)return 0;
+  const a=h.a,b=h.b,yy=y-h.cy;
+  const rho=Math.hypot(x,yy);if(rho>b+1&&rho>a+1)return 0;
+  const th=Math.atan2(yy,x),c=Math.cos(th),sn=Math.sin(th);
+  const d=a*b/Math.sqrt((b*c)**2+(a*sn)**2)-rho;
+  if(d<0)return 0;
+  if(z<-18&&z>-50){
+    for(const sx of[-30,30]){
+      if(h.gz>0&&inE(x,y,sx,h.gcY,12*Math.sqrt(h.gz),12*Math.sqrt(h.gz)))return d<1.6?7:8;
+      if(inE(x,y,sx*0.85,h.gcY+14,15,22))return(Math.abs(x-sx*0.85)<2&&y>h.gcY+10)?5:2;
     }
+    if(inE(x,y,0,h.gcY+6,10,20))return 0;
   }
-  const tz=1-((z+26)/16)**2;
-  if(tz>0&&inE(ax,y,40,-12,22*Math.sqrt(tz)+4,30*Math.sqrt(tz)+4)){
-    if(db<2.5)return 4;
-    if(z>-24&&inE(ax,y,30,-4,2,7))return 3;
-    const sp=Math.abs(Math.sin(th*24+z*0.1));
-    if(sp<0.2)return 3;if(sp<0.6)return 4;return 5;
-  }
-  if(inE(x,y,0,12,20,18))return 3;
-  return 1;
+  if(d<1.6)return 7;if(d<4.6)return 2;
+  const skull=z>(y>15?-56:-44);
+  if(!skull)return neck(x,y,z);
+  if(d<6.2)return 1;if(d<7.4)return 2;if(d<8.8)return 1;if(d<10.6)return 3;
+  const db=d-10.6;
+  let lab;
+  if(in3(x,y,z,0,40,-32,52,34,22)&&!(z>-14&&y<20))lab=cerebellum(x,y,z);
+  else lab=z>=-14?supra(x,y,z,db,th,rho):infra(x,y,z,db,th,rho);
+  if(path==='ms'&&lab===5){for(const e of MS){const ex=(x-e[0])/e[3],ey=(y-e[1])/e[4],ez=(z-e[2])/e[5];if(ex*ex+ey*ey+ez*ez<=1){lab=6;break;}}}
+  if(path==='stroke'&&(lab===4||lab===5)&&x>0&&th>-0.8&&th<0.55&&rho>20&&z>-6&&z<34&&db<38)lab=9;
+  return lab;
 }
 function buildLabels(z,path){
   const L=new Uint8Array(G*G);
-  const s=z<5?Math.sqrt(Math.max(0,1-((z-5)/112)**2)):Math.sqrt(Math.max(0,1-((z-5)/92)**2));
-  if(s<0.03)return L;
-  const a=72*s,b=92*s,gcY=-(b-16);
-  const gz=1-((z+33)/13)**2;
-  for(let j=0;j<G;j++){
-    const y=-HALF+(j+0.5)*RES;
-    for(let i=0;i<G;i++){
-      const x=-HALF+(i+0.5)*RES;
-      const rho=Math.hypot(x,y),th=Math.atan2(y,x);
-      const c=Math.cos(th),sn=Math.sin(th);
-      const d=a*b/Math.sqrt((b*c)**2+(a*sn)**2)-rho;
-      if(d<0)continue;
-      let lab=-1;
-      if(z<-18&&z>-50){
-        for(const sx of[-30,30]){
-          if(gz>0&&inE(x,y,sx,gcY,12*Math.sqrt(gz),12*Math.sqrt(gz))){lab=d<1.6?7:8;break;}
-          if(inE(x,y,sx*0.85,gcY+14,15,22)){lab=(Math.abs(x-sx*0.85)<2&&y>gcY+10)?5:2;break;}
-        }
-        if(lab<0&&inE(x,y,0,gcY+6,10,20))lab=0;
-      }
-      if(lab<0){
-        if(d<1.6)lab=7;else if(d<4.6)lab=2;else if(d<6.2)lab=1;else if(d<7.4)lab=2;else if(d<8.8)lab=1;else if(d<10.6)lab=3;
-        else{
-          const db=d-10.6;
-          lab=z>=-14?supra(x,y,z,db,th):infra(x,y,z,db,th);
-          if(path==='ms'&&lab===5){for(const e of MS){const ex=(x-e[0])/e[3],ey=(y-e[1])/e[4],ez=(z-e[2])/e[5];if(ex*ex+ey*ey+ez*ez<=1){lab=6;break;}}}
-          if(path==='stroke'&&(lab===4||lab===5)&&x>0&&th>-0.8&&th<0.55&&rho>20&&z>-6&&z<34&&db<38)lab=9;
-        }
-      }
-      L[j*G+i]=lab;
-    }
-  }
+  for(let j=0;j<G;j++){const y=-HALF+(j+0.5)*RES;for(let i=0;i<G;i++)L[j*G+i]=labelPoint(-HALF+(i+0.5)*RES,y,z,path);}
   return L;
 }
 const labelCache=new Map();
@@ -354,7 +421,8 @@ function derive(p,B0){
   const maxSlices=Math.max(1,Math.floor(TR/sliceT));
   const concat=Math.ceil(p.slices/maxSlices);
   let TA;
-  if(p.seq==='tse')TA=TR*Math.ceil(acq/p.ETL)*p.nex*concat;
+  if(p.loc)TA=TR*acq*p.nex*3;
+  else if(p.seq==='tse')TA=TR*Math.ceil(acq/p.ETL)*p.nex*concat;
   else if(p.seq==='epi')TA=TR*p.nex*(p.b>0?4:1)*concat+TR;
   else TA=TR*acq*p.nex*concat;
   const dr=p.fovRead/p.base,dp=p.fovRead*p.fovPh/100/linesNom;
@@ -392,25 +460,46 @@ function signals(pp){
   return out;
 }
 function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
-function computeImage(pp,z,seed){
-  const d=derive(pp,pp.B0),L=getLabels(z,pp.path),sig=signals(pp);
-  const fovR=pp.fovRead,fovP=fovR*pp.fovPh/100,Nr=pp.base,Np=d.linesNom;
-  const ph=pp.phaseDir==='RL';
-  const W=ph?Np:Nr,H=ph?Nr:Np,fovW=ph?fovP:fovR,fovH=ph?fovR:fovP;
-  const period=fovP*(1+pp.os/100),dx=fovW/W,dy=fovH/H;
+
+/* ---------- geometry ---------- */
+// Slice group: in-plane u = patient x; v tilts from posterior toward head by the T>C angle.
+function geomSlice(pp,i){
+  const al=pp.tilt*Math.PI/180,ca=Math.cos(al),sa=Math.sin(al);
+  const s=(i-(pp.slices-1)/2)*pp.thick*(1+pp.dist/100);
+  const fovR=pp.fovRead,fovP=fovR*pp.fovPh/100,ph=pp.phaseDir==='RL',Np=Math.max(8,Math.round(pp.base*pp.phRes/100));
+  return{C:[pp.offX,pp.offY-s*sa,pp.pos+s*ca],u:[1,0,0],v:[0,ca,sa],n:[0,-sa,ca],
+    fovW:ph?fovP:fovR,fovH:ph?fovR:fovP,W:ph?Np:pp.base,H:ph?pp.base:Np,phaseH:ph,period:fovP*(1+pp.os/100)};
+}
+const LOCG={
+  sag:{C:[3,0,10],u:[0,1,0],v:[0,0,-1],name:'Sag'},
+  cor:{C:[0,0,10],u:[1,0,0],v:[0,0,-1],name:'Cor'},
+  tra:{C:[0,0,20],u:[1,0,0],v:[0,1,0],name:'Tra'}};
+function geomLoc(pp,plane){const g=LOCG[plane];return{C:g.C,u:g.u,v:g.v,n:null,fovW:pp.fovRead,fovH:pp.fovRead,W:pp.base,H:pp.base,phaseH:false,period:pp.fovRead*4,name:g.name};}
+
+function computePlane(pp,g,seed){
+  const d=derive(pp,pp.B0),sig=signals(pp),path=pp.path;
+  const{C,u,v,fovW,fovH,W,H,phaseH,period}=g;
+  const dx=fovW/W,dy=fovH/H;
   const nsx=clamp(Math.ceil(dx/0.6),1,4),nsy=clamp(Math.ceil(dy/0.6),1,4);
+  const fast=u[0]===1&&u[1]===0&&u[2]===0&&v[2]===0&&v[0]===0;
+  const Lf=fast?getLabels(C[2],path):null;
+  const samp=(a,b)=>{
+    const x=C[0]+a*u[0]+b*v[0],y=C[1]+a*u[1]+b*v[1];
+    if(x<=-HALF||x>=HALF||y<=-HALF||y>=HALF)return 0;
+    if(Lf)return sig[Lf[((y+HALF)/RES|0)*G+((x+HALF)/RES|0)]];
+    return sig[labelPoint(x,y,C[2]+a*u[2]+b*v[2],path)];
+  };
   const out=new Float32Array(W*H);
-  const samp=(x,y)=>(x<=-HALF||x>=HALF||y<=-HALF||y>=HALF)?0:sig[L[((y+HALF)/RES|0)*G+((x+HALF)/RES|0)]];
   for(let j=0;j<H;j++)for(let i=0;i<W;i++){
     let acc=0;
-    for(let sy=0;sy<nsy;sy++){const y=-fovH/2+(j+(sy+0.5)/nsy)*dy;
-      for(let sx=0;sx<nsx;sx++){const x=-fovW/2+(i+(sx+0.5)/nsx)*dx;
-        if(ph)for(let k=-2;k<=2;k++)acc+=samp(x+k*period,y);else for(let k=-2;k<=2;k++)acc+=samp(x,y+k*period);}}
+    for(let sy=0;sy<nsy;sy++){const b=-fovH/2+(j+(sy+0.5)/nsy)*dy;
+      for(let sx=0;sx<nsx;sx++){const a=-fovW/2+(i+(sx+0.5)/nsx)*dx;
+        if(phaseH)for(let k=-2;k<=2;k++)acc+=samp(a+k*period,b);else for(let k=-2;k<=2;k++)acc+=samp(a,b+k*period);}}
     out[j*W+i]=acc/(nsx*nsy);
   }
-  if(pp.seq==='epi'){const g=out.slice();for(let j=0;j<H;j++)for(let i=0;i<W;i++){out[j*W+i]+=0.03*(ph?g[j*W+((i+(W>>1))%W)]:g[((j+(H>>1))%H)*W+i]);}}
+  if(pp.seq==='epi'){const gh=out.slice();for(let j=0;j<H;j++)for(let i=0;i<W;i++)out[j*W+i]+=0.03*(phaseH?gh[j*W+((i+(W>>1))%W)]:gh[((j+(H>>1))%H)*W+i]);}
   const sigma=0.0042/d.snr,r=rng(seed);
-  const gauss=()=>{let u=r()||1e-9,v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(6.2831853*v);};
+  const gauss=()=>{const uu=r()||1e-9,vv=r();return Math.sqrt(-2*Math.log(uu))*Math.cos(6.2831853*vv);};
   for(let k=0;k<out.length;k++){const s=out[k];out[k]=Math.hypot(s+gauss()*sigma,gauss()*sigma)*3000;}
   return{data:out,W,H,fovW,fovH};
 }
@@ -421,9 +510,9 @@ function autoWL(img){
 }
 
 /* ---------- protocols ---------- */
-const BASE={prep:'none',TI:2500,FA:90,refFA:150,ETL:1,bw:200,nex:1,slices:20,thick:5,dist:30,pos:12,fovRead:230,fovPh:87.5,base:256,phRes:75,os:0,phaseDir:'RL',pat:1,fat:'none',b:0,rf:'normal',interp:'on'};
+const BASE={prep:'none',TI:2500,FA:90,refFA:150,ETL:1,bw:200,nex:1,slices:20,thick:5,dist:30,pos:12,offX:0,offY:0,tilt:0,fovRead:230,fovPh:87.5,base:256,phRes:75,os:0,phaseDir:'RL',pat:1,fat:'none',b:0,rf:'normal',interp:'on',loc:false};
 const LIB=[
-  {name:'localizer',seq:'gre',TR:8.6,TE:4,FA:20,bw:320,slices:3,thick:7,dist:100,pos:20,fovRead:250,fovPh:100,base:128,phRes:75,phaseDir:'AP'},
+  {name:'localizer',loc:true,seq:'gre',TR:8.6,TE:4,FA:20,bw:320,slices:1,thick:7,dist:0,pos:20,fovRead:260,fovPh:100,base:256,phRes:100,phaseDir:'AP'},
   {name:'t2_tse_tra',seq:'tse',TR:4000,TE:99,refFA:150,ETL:15,bw:190,base:384,phRes:75,pat:2},
   {name:'t1_se_tra',seq:'se',TR:500,TE:10,bw:160},
   {name:'t2_tirm_tra_dark-fluid',seq:'tse',prep:'ir',TR:9000,TI:2500,TE:84,ETL:16,bw:260},
@@ -435,13 +524,62 @@ const SEQLBL={tse:'tse',se:'se',gre:'fl',epi:'ep_b'};
 let uid=1;
 function newProt(t){const p=Object.assign({},BASE,t);p.id=uid++;p.state='pending';p.prog=0;p.seed=(Math.random()*1e9)|0;normalize(p);p.snrRef=derive(p).snr;return p;}
 
-const state={B0:1.5,path:'normal',sound:false,queue:[],selId:null,series:0,running:null,tab:'Routine'};
+const state={B0:1.5,path:'normal',sound:false,queue:[],selId:null,series:0,running:null,tab:'Routine',patient:null,view:'patient'};
+const locDone=()=>state.queue.find(p=>p.loc&&p.state==='done');
+
+/* ---------- patient task ---------- */
+const WL=[
+  {last:'GONZÁLEZ',first:'MARÍA',id:'20451',sex:'F',dob:'1978-03-12',h:1.62,w:64,ref:'Dra. Soto',proc:'RM cerebro sin contraste',t:'09:00',path:'normal'},
+  {last:'MUÑOZ',first:'PEDRO',id:'20452',sex:'M',dob:'1961-11-02',h:1.75,w:80,ref:'Dr. Riquelme',proc:'RM cerebro · sospecha ACV',t:'09:40',path:'stroke'},
+  {last:'ROJAS',first:'CAMILA',id:'20453',sex:'F',dob:'1990-07-21',h:1.68,w:58,ref:'Dra. Fuentes',proc:'RM cerebro · control EM',t:'10:20',path:'ms'},
+];
+let wlSel=0;
+function renderWL(){
+  $('#wlDate').textContent=new Date().toLocaleDateString('es-CL');
+  $('#wlBody').innerHTML=WL.map((w,i)=>`<tr class="${i===wlSel?'sel':''}" data-i="${i}" tabindex="0"><td>${w.last}^${w.first}</td><td>${w.id}</td><td>${w.sex}</td><td>${w.dob}</td><td>${w.proc}</td><td>${w.t}</td></tr>`).join('');
+}
+function fillForm(i){
+  wlSel=i;const w=WL[i];
+  $('#rLast').value=w.last;$('#rFirst').value=w.first;$('#rId').value=w.id;$('#rDob').value=w.dob;$('#rSex').value=w.sex;
+  $('#rHeight').value=w.h.toFixed(2);$('#rWeight').value=String(w.w);$('#rRef').value=w.ref;$('#rProc').value=w.proc;
+  state.path=w.path;$('#path').value=w.path;renderWL();
+}
+function age(dob){const b=new Date(dob),n=new Date();let a=n.getFullYear()-b.getFullYear();if(n<new Date(n.getFullYear(),b.getMonth(),b.getDate()))a--;return a;}
+function register(){
+  const v=id=>$(id).value.trim();
+  const h=parseFloat(v('#rHeight').replace(',','.')),w=parseFloat(v('#rWeight').replace(',','.'));
+  const bad=[];
+  [['#rLast',!!v('#rLast')],['#rId',!!v('#rId')],['#rDob',!!v('#rDob')&&!isNaN(age(v('#rDob')))],['#rHeight',h>=0.4&&h<=2.5],['#rWeight',w>=2&&w<=250]].forEach(([id,ok])=>{$(id).setAttribute('aria-invalid',ok?'false':'true');if(!ok)bad.push($(`label[for="${id.slice(1)}"]`).textContent);});
+  if(bad.length){setMsg('Falta o es inválido: '+bad.join(', ')+'.','err');return;}
+  state.patient={last:v('#rLast').toUpperCase(),first:v('#rFirst').toUpperCase(),id:v('#rId'),sex:$('#rSex').value,dob:v('#rDob'),age:age(v('#rDob')),h,w,proc:v('#rProc')};
+  const P=state.patient;
+  $('#patBar').innerHTML=`<span><b>${P.last}^${P.first}</b></span><span>ID ${P.id}</span><span>${P.sex} · ${P.age}a · ${P.w} kg · ${P.h.toFixed(2)} m</span><span>Head First-Supine</span><span>Head/Neck 20</span>`;
+  stopSound();state.running=null;state.series=0;setState(false,'Ready');
+  state.queue=['localizer','t2_tse_tra','t1_se_tra','t2_tirm_tra_dark-fluid','ep2d_diff_tra_b1000','t2_fl2d_tra_hemo'].map(n=>newProt(LIB.find(t=>t.name===n)));
+  segB.pid=null;segB.key='';segB.img=null;
+  $('#tExam').disabled=false;
+  showView('exam');
+  select(state.queue[0].id);
+  setMsg(`Paciente ${P.last}^${P.first} registrado. Paso 1: mide el localizer con Go.`,'ok');
+}
+function showView(v){
+  state.view=v;
+  $('#viewPatient').hidden=v!=='patient';$('#viewExam').hidden=v!=='exam';
+  $('#tPatient').setAttribute('aria-pressed',v==='patient');$('#tExam').setAttribute('aria-pressed',v==='exam');
+  $('#help').textContent=v==='patient'?'Elige un paciente de la worklist o completa el registro y presiona Exam.':'Localizers: arrastra el slice group para moverlo, el punto para angular · Imágenes: arrastra ←→ ventana, ↑↓ centro · rueda o ‹ › corte · doble clic ventana automática';
+  if(v==='exam')requestAnimationFrame(()=>{allSegs.forEach(drawSeg);});
+}
 
 /* ---------- parameter card ---------- */
+const PREF={pos:['H','F'],offX:['L','R'],offY:['P','A']};
 const F={
   slices:{l:'Slices',min:1,max:60,st:1,dec:0},
   dist:{l:'Dist. factor',u:'%',min:0,max:100,st:5,dec:0},
-  pos:{l:'Position',u:'mm',min:-60,max:90,st:0.5,dec:1},
+  pos:{l:'Position F-H',u:'mm',min:-60,max:90,st:0.5,dec:1},
+  offX:{l:'Position R-L',u:'mm',min:-60,max:60,st:0.5,dec:1},
+  offY:{l:'Position A-P',u:'mm',min:-80,max:80,st:0.5,dec:1},
+  tilt:{l:'Angulation T>C',u:'deg',min:-45,max:45,st:0.5,dec:1},
+  orient:{l:'Orientation',ro:p=>p.tilt?`T > C ${p.tilt>0?'':'-'}${Math.abs(p.tilt).toFixed(1)}`:'Transversal'},
   phaseDir:{l:'Phase enc. dir.',sel:[['RL','R >> L'],['AP','A >> P']]},
   fovRead:{l:'FoV read',u:'mm',min:100,max:300,st:5,dec:0},
   fovPh:{l:'FoV phase',u:'%',min:50,max:100,st:3.125,dec:1},
@@ -469,38 +607,57 @@ const F={
   epiF:{l:'EPI factor',ro:(p,d)=>d.epiF,show:p=>p.seq==='epi'},
   rf:{l:'RF pulse type',sel:[['normal','Normal'],['lowsar','Low SAR'],['fast','Fast']]},
 };
+const GEO=['slices','dist','pos','offX','offY','tilt','orient'];
 const TABS={Routine:['slices','dist','pos','phaseDir','fovRead','fovPh','thick','TR','TE','nex','concat'],
+  Geometry:['slices','dist','thick','pos','offX','offY','tilt','orient','phaseDir'],
   Contrast:['TR','TE','prep','TI','FA','refFA','fat','b'],
   Resolution:['base','phRes','os','pat','interp','voxel'],
   Sequence:['bw','ETL','ES','trains','epiF','rf']};
-const fmtVal=(k,v)=>k==='pos'?(v>=0?'H':'F')+Math.abs(v).toFixed(1):Number(v).toFixed(F[k].dec);
+const fmtVal=(k,v)=>PREF[k]?(v>=0?PREF[k][0]:PREF[k][1])+Math.abs(v).toFixed(1):Number(v).toFixed(F[k].dec);
 const sel=()=>state.queue.find(p=>p.id===state.selId);
 
 function fieldHTML(tab,k,p,d,ro){
   const f=F[k];if(f.show&&!f.show(p))return'';
+  if(p.loc&&GEO.includes(k))return'';
   const id=`f-${tab}-${k}`;
-  if(f.ro)return`<div class="fld"><span class="lbl">${f.l}</span><output class="val ro">${f.ro(p,d)}</output><span class="unit"></span></div>`;
+  if(f.ro)return`<div class="fld"><span class="lbl">${f.l}</span><output class="val ro" id="${id}">${f.ro(p,d)}</output><span class="unit"></span></div>`;
   if(f.sel)return`<div class="fld"><label class="lbl" for="${id}">${f.l}</label><select id="${id}" data-k="${k}" ${ro?'disabled':''}>${f.sel.map(([v,t])=>`<option value="${v}" ${String(p[k])===String(v)?'selected':''}>${t}</option>`).join('')}</select><span class="unit"></span></div>`;
   return`<div class="fld"><label class="lbl" for="${id}">${f.l}</label><div class="num"><input id="${id}" data-k="${k}" value="${fmtVal(k,p[k])}" ${ro?'disabled':''} inputmode="decimal" autocomplete="off" spellcheck="false"><span class="spin"><button type="button" data-k="${k}" data-d="1" ${ro?'disabled':''} aria-label="Subir ${f.l}"></button><button type="button" data-k="${k}" data-d="-1" ${ro?'disabled':''} aria-label="Bajar ${f.l}"></button></span></div><span class="unit">${f.u||''}</span></div>`;
+}
+function infoHTML(p,d){
+  const rel=d.snr/p.snrRef,sarC=d.sar>100?'over':d.sar>80?'hi':'';
+  return`<span>TA: <b>${fmtTA(d.TA)}</b></span><span>PAT: <b>${d.R>1?d.R:'Off'}</b></span><span>Voxel size: <b>${d.dr.toFixed(1)}×${d.dp.toFixed(1)}×${p.thick.toFixed(1)} mm</b></span><span>Rel. SNR: <b>${rel.toFixed(2)}</b></span><span>: <b>${SEQLBL[p.seq]}${p.seq==='tse'?p.ETL:''}</b></span>
+    <span class="sar ${sarC}" title="SAR estimado, % del límite modo normal (${state.patient?state.patient.w+' kg':''})">SAR <span class="m"><i style="width:${Math.min(100,d.sar)}%"></i></span><b>${Math.round(d.sar)}%</b></span>
+    <span class="cact"><button class="btn stop" id="stopBtn" type="button" ${state.running?'':'disabled'}>Stop</button><button class="btn go" id="goBtn" type="button" ${p.state==='pending'&&!state.running?'':'disabled'}>Go</button></span>`;
 }
 function renderCard(focusId){
   const p=sel();
   $('#tabs').innerHTML=Object.keys(TABS).map(t=>`<button type="button" role="tab" aria-selected="${t===state.tab}" data-tab="${t}">${t}</button>`).join('');
-  if(!p){$('#cbody').innerHTML='';$('#info').innerHTML='';$('#pname').textContent='—';return;}
+  if(!p){$('#cbody').innerHTML='';$('#info').innerHTML='';$('#pname').textContent='—';$('#pbadge').textContent='';return;}
   const d=derive(p),ro=p.state!=='pending';
   $('#pname').textContent=p.name;
   const b=$('#pbadge');b.className='badge '+p.state;b.textContent=p.state==='pending'?'abierto':p.state==='done'?'medido · solo lectura':'midiendo';
-  $('#cbody').innerHTML=TABS[state.tab].map(k=>fieldHTML(state.tab,k,p,d,ro)).join('');
-  const rel=d.snr/p.snrRef,sarC=d.sar>100?'over':d.sar>80?'hi':'';
-  $('#info').innerHTML=`<span>TA: <b>${fmtTA(d.TA)}</b></span><span>PAT: <b>${d.R>1?d.R:'Off'}</b></span><span>Voxel size: <b>${d.dr.toFixed(1)}×${d.dp.toFixed(1)}×${p.thick.toFixed(1)} mm</b></span><span>Rel. SNR: <b>${rel.toFixed(2)}</b></span><span>: <b>${SEQLBL[p.seq]}${p.seq==='tse'?p.ETL:''}</b></span>
-    <span class="sar ${sarC}" title="SAR estimado, % del límite modo normal">SAR <span class="m"><i style="width:${Math.min(100,d.sar)}%"></i></span><b>${Math.round(d.sar)}%</b></span>
-    <span class="cact"><button class="btn stop" id="stopBtn" type="button" ${state.running?'':'disabled'}>Stop</button><button class="btn go" id="goBtn" type="button" ${p.state==='pending'&&!state.running?'':'disabled'}>Go</button></span>`;
+  const src=p.state==='done'&&p.snap?p.snap:p;
+  $('#cbody').innerHTML=TABS[state.tab].map(k=>fieldHTML(state.tab,k,src,d,ro)).join('')||'<span class="lbl">El localizer usa geometría fija en 3 planos.</span>';
+  $('#info').innerHTML=infoHTML(p,d);
   if(focusId){const el=document.getElementById(focusId);if(el){el.focus();if(el.select)el.select();}}
+}
+// light refresh while dragging the slice group: values only, no rebuild
+function refreshCardValues(){
+  const p=sel();if(!p)return;const d=derive(p);
+  for(const k of TABS[state.tab]){const el=document.getElementById(`f-${state.tab}-${k}`);if(!el)continue;if(F[k].ro)el.textContent=F[k].ro(p,d);else if(el.tagName==='INPUT')el.value=fmtVal(k,p[k]);}
+  $('#info').innerHTML=infoHTML(p,d);
 }
 function parseNum(k,raw){
   raw=String(raw).trim().replace(',','.');
-  if(k==='pos'){const m=raw.match(/^([HhFf])?\s*(-?[\d.]+)/);if(!m)return NaN;let v=parseFloat(m[2]);if(m[1]&&/f/i.test(m[1]))v=-Math.abs(v);return v;}
+  if(PREF[k]){const m=raw.match(/^([A-Za-z])?\s*(-?[\d.]+)/);if(!m)return NaN;let v=parseFloat(m[2]);if(m[1]&&m[1].toUpperCase()===PREF[k][1])v=-Math.abs(v);return v;}
   return parseFloat(raw);
+}
+function afterChange(p,msgs,label){
+  const d=derive(p);let lvl=msgs.length?'warn':'ok';
+  if(d.concat>1)msgs.push(`${d.concat} concatenaciones: caben ${d.maxSlices} cortes por TR.`);
+  if(d.sar>100){msgs.push('SAR sobre el límite: reduce cortes, sube TR, baja el flip angle de refoco o usa RF Low SAR.');lvl='err';}
+  setMsg(msgs.join(' ')||`${label} aplicado.`,lvl);
 }
 function commit(k,v,focusId){
   const p=sel();if(!p||p.state!=='pending')return;
@@ -515,12 +672,8 @@ function commit(k,v,focusId){
     if(k!=='fovPh')n=Math.round(n*10**f.dec)/10**f.dec;
     p[k]=n;
   }
-  const msgs=normalize(p),d=derive(p);
-  let lvl=msgs.length?'warn':'ok';
-  if(d.concat>1)msgs.push(`${d.concat} concatenaciones: caben ${d.maxSlices} cortes por TR.`);
-  if(d.sar>100){msgs.push('SAR sobre el límite: reduce cortes, sube TR, baja el flip angle de refoco o usa RF Low SAR.');lvl='err';}
-  setMsg(msgs.join(' ')||`${f.l} aplicado.`,lvl);
-  renderCard(focusId);renderQueue();refreshPreview();
+  afterChange(p,normalize(p),f.l);
+  renderCard(focusId);renderQueue();refreshPreview();drawLocs();
 }
 
 /* ---------- queue & library ---------- */
@@ -538,42 +691,60 @@ function renderQueue(){
   $('#qtime').textContent='Tiempo restante '+fmtTA(pend.reduce((s,p)=>s+derive(p).TA*(1-p.prog),0));
   const p=sel();
   $('#rep').disabled=!p;$('#del').disabled=!p||p.state!=='pending';
+  $('#cpy').disabled=!p||p.state!=='pending'||p.loc||!lastGeoSeries(p);
 }
+function lastGeoSeries(except){return state.queue.filter(q=>q.state==='done'&&!q.loc&&q!==except).sort((a,b)=>b.series-a.series)[0];}
 function select(id){
   state.selId=id;const p=sel();
   segA.slice=Math.floor((p.slices-1)/2);segA.userWL=false;
   if(p.state==='done')showSeries(p);
-  renderQueue();renderCard();refreshPreview();
+  renderQueue();renderCard();refreshPreview();drawLocs();
 }
 
-/* ---------- viewer ---------- */
-function makeSeg(id,kind){const el=$(id);return{el,kind,cv:el.querySelector('canvas'),ov:[...el.querySelectorAll('.ov')],off:document.createElement('canvas'),slice:0,wl:null,userWL:false,img:null,key:'',pid:null};}
+/* ---------- viewer segments ---------- */
+function makeSeg(id,kind,plane){const el=$(id);return{el,kind,plane,cv:el.querySelector('canvas'),ov:[...el.querySelectorAll('.ov')],off:document.createElement('canvas'),slice:0,wl:null,userWL:false,img:null,key:'',pid:null,geom:null,rect:null};}
 const segA=makeSeg('#segA','preview'),segB=makeSeg('#segB','series');
+const segSag=makeSeg('#segSag','loc','sag'),segCor=makeSeg('#segCor','loc','cor'),segTra=makeSeg('#segTra','loc','tra');
+const locSegs=[segSag,segCor,segTra],allSegs=[segSag,segCor,segTra,segA,segB];
+const overlayPatient=()=>{const P=state.patient;return P?`${P.last}^${P.first}\n${P.id}\n${P.sex} ${P.age}Y ${P.w}kg`:'';};
 function segParams(seg){
   if(seg.kind==='preview'){const p=sel();return p?{p,pp:Object.assign({},p,{B0:state.B0,path:state.path})}:null;}
+  if(seg.kind==='loc'){const p=locDone();return p?{p,pp:p.snap}:null;}
   const p=state.queue.find(q=>q.id===seg.pid);return p&&p.snap?{p,pp:p.snap}:null;
 }
-const zOf=(pp,i)=>pp.pos+(i-(pp.slices-1)/2)*pp.thick*(1+pp.dist/100);
+function orientTxt(pp){return pp.tilt?`Tra>Cor(${pp.tilt>0?'':'-'}${Math.abs(pp.tilt).toFixed(1)})`:'Tra';}
 function updateSeg(seg){
   const sp=segParams(seg);
-  if(seg.kind==='series')$('#emptyB').hidden=!!sp;
-  if(!sp){seg.img=null;drawSeg(seg);return;}
+  const empty=seg.el.querySelector('.empty');if(empty)empty.hidden=!!sp;
+  if(!sp){seg.img=null;seg.geom=null;seg.ov.forEach(o=>o.textContent='');drawSeg(seg);return;}
   const{p,pp}=sp;
-  seg.slice=clamp(seg.slice,0,pp.slices-1);
-  const z=zOf(pp,seg.slice);
+  if(seg.kind==='loc'){
+    seg.img=p.locImgs[seg.plane];seg.geom=geomLoc(pp,seg.plane);
+    if(seg.key!==p.id+seg.plane){seg.key=p.id+seg.plane;seg.userWL=false;}
+    if(!seg.userWL)seg.wl=autoWL(seg.img);
+    mapWL(seg);
+    seg.ov[0].textContent=`${overlayPatient()}\nSe: ${p.series}  ${seg.geom.name}`;
+    seg.ov[1].textContent=`W ${seg.wl.w}\nC ${seg.wl.c}`;
+    drawSeg(seg);return;
+  }
+  const isLoc=pp.loc;
+  const nS=isLoc?1:pp.slices;
+  seg.slice=clamp(seg.slice,0,nS-1);
+  const g=isLoc?geomLoc(pp,'tra'):geomSlice(pp,seg.slice);
+  seg.geom=g;
   const key=JSON.stringify(pp)+'|'+seg.slice;
   if(key!==seg.key){
-    seg.img=computeImage(pp,z,p.seed+seg.slice*101);seg.key=key;
+    seg.img=computePlane(pp,g,p.seed+seg.slice*101);seg.key=key;
     if(!seg.userWL)seg.wl=autoWL(seg.img);
     mapWL(seg);
   }
   const d=derive(pp,pp.B0);
   const fovP=pp.fovRead*pp.fovPh/100;
   const fovStr=pp.phaseDir==='RL'?`${Math.round(fovP)}*${pp.fovRead}`:`${pp.fovRead}*${Math.round(fovP)}`;
-  const today=new Date().toLocaleDateString('es-CL');
-  seg.ov[0].textContent=`SIMULADO^PACIENTE\nSIM-0001\nM 45Y 72kg\nHead^Brain`;
-  seg.ov[1].textContent=`Resonador ${pp.B0} T\n${seg.kind==='series'?'Se: '+p.series:'Protocolo abierto'}\nIm: ${seg.slice+1}/${pp.slices}\n${today}`;
-  seg.ov[2].textContent=`SP ${z>=0?'H':'F'}${Math.abs(z).toFixed(1)}\nSL ${pp.thick.toFixed(1)}\nFoV ${fovStr}\nTra>${pp.phaseDir==='RL'?'R>>L':'A>>P'}\nTR ${f1(pp.TR)}${pp.prep==='ir'?'  TI '+pp.TI:''}\nTE ${f1(pp.TE)}${pp.seq==='gre'?'  FA '+pp.FA:''}${pp.seq==='epi'?'  b '+pp.b:''}\nTA ${fmtTA(d.TA)}  BW ${pp.bw}\n${pp.name}`;
+  const z=g.C[2];
+  seg.ov[0].textContent=`${overlayPatient()}\nHead^Brain`;
+  seg.ov[1].textContent=`Resonador ${pp.B0} T\n${seg.kind==='series'?'Se: '+p.series:'Protocolo abierto'}\nIm: ${seg.slice+1}/${nS}\n${new Date().toLocaleDateString('es-CL')}`;
+  seg.ov[2].textContent=`SP ${z>=0?'H':'F'}${Math.abs(z).toFixed(1)}\nSL ${pp.thick.toFixed(1)}\nFoV ${fovStr}\n${isLoc?'Tra':orientTxt(pp)}>${pp.phaseDir==='RL'?'R>>L':'A>>P'}\nTR ${f1(pp.TR)}${pp.prep==='ir'?'  TI '+pp.TI:''}\nTE ${f1(pp.TE)}${pp.seq==='gre'?'  FA '+pp.FA:''}${pp.seq==='epi'?'  b '+pp.b:''}\nTA ${fmtTA(d.TA)}  BW ${pp.bw}\n${pp.name}`;
   seg.ov[3].textContent=`W ${seg.wl.w}\nC ${seg.wl.c}`;
   drawSeg(seg);
 }
@@ -587,28 +758,118 @@ function mapWL(seg){
 }
 function drawSeg(seg){
   const cv=seg.cv,r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  if(!r.width)return;
   cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
   const ctx=cv.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
-  const im=seg.img;if(!im)return;
+  const im=seg.img;if(!im){seg.rect=null;return;}
   const sp=segParams(seg);
   const s=Math.min(cv.width/im.fovW,cv.height/im.fovH)*0.94,dw=im.fovW*s,dh=im.fovH*s;
-  ctx.imageSmoothingEnabled=!sp||sp.pp.interp==='on';
-  ctx.drawImage(seg.off,(cv.width-dw)/2,(cv.height-dh)/2,dw,dh);
+  seg.rect={ox:(cv.width-dw)/2,oy:(cv.height-dh)/2,sc:s,dpr};
+  ctx.imageSmoothingEnabled=seg.kind==='loc'||!sp||sp.pp.interp==='on';
+  ctx.drawImage(seg.off,seg.rect.ox,seg.rect.oy,dw,dh);
+  if(seg.kind==='loc')drawPlan(seg,ctx);
 }
-let rafA=0;
-function refreshPreview(){cancelAnimationFrame(rafA);rafA=requestAnimationFrame(()=>updateSeg(segA));}
-function showSeries(p){segB.pid=p.id;segB.slice=Math.floor((p.snap.slices-1)/2);segB.userWL=false;segB.key='';updateSeg(segB);}
+
+/* ---------- graphic slice positioning ---------- */
+function planProt(){const p=sel();if(!p||p.loc)return null;return{p,pp:p.state==='done'&&p.snap?p.snap:p,edit:p.state==='pending'};}
+function toCan(seg,P){const g=seg.geom,d=[P[0]-g.C[0],P[1]-g.C[1],P[2]-g.C[2]];return[seg.rect.ox+(dot3(d,g.u)+g.fovW/2)*seg.rect.sc,seg.rect.oy+(dot3(d,g.v)+g.fovH/2)*seg.rect.sc];}
+function toPat(seg,X,Y){const g=seg.geom,a=(X-seg.rect.ox)/seg.rect.sc-g.fovW/2,b=(Y-seg.rect.oy)/seg.rect.sc-g.fovH/2;return[g.C[0]+a*g.u[0]+b*g.v[0],g.C[1]+a*g.u[1]+b*g.v[1],g.C[2]+a*g.u[2]+b*g.v[2]];}
+const add3=(a,b,k)=>[a[0]+b[0]*k,a[1]+b[1]*k,a[2]+b[2]*k];
+function groupFrame(pp){
+  const g=geomSlice(pp,(pp.slices-1)/2);
+  const step=pp.thick*(1+pp.dist/100);
+  // in-plane extent along u is the horizontal FoV, along v the vertical one
+  return{C:[pp.offX,pp.offY,pp.pos],u:g.u,v:g.v,n:g.n,fu:g.fovW,fv:g.fovH,half:(pp.slices-1)/2*step+pp.thick/2,step};
+}
+function handlePos(fr){return add3(fr.C,fr.v,-(fr.fv/2+12));}
+function drawPlan(seg,ctx){
+  const pr=planProt();if(!pr||!seg.rect)return;
+  const{pp,edit}=pr,fr=groupFrame(pp),dpr=seg.rect.dpr;
+  const col=edit?'#ef8f2f':'#9aa3aa',colC=edit?'#ffd27a':'#c8ced3';
+  ctx.save();ctx.lineWidth=1*dpr;
+  const line=(A,B,c,w,dash)=>{const a=toCan(seg,A),b=toCan(seg,B);ctx.strokeStyle=c;ctx.lineWidth=w*dpr;ctx.setLineDash(dash?dash.map(x=>x*dpr):[]);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();};
+  const ci=i=>add3(fr.C,fr.n,(i-(pp.slices-1)/2)*fr.step);
+  const mid=(pp.slices-1)/2;
+  if(seg.plane==='sag'){
+    for(let i=0;i<pp.slices;i++){const c=ci(i),cen=Math.abs(i-mid)<0.6;line(add3(c,fr.v,-fr.fv/2),add3(c,fr.v,fr.fv/2),cen?colC:col,cen?1.6:1);}
+    const A=add3(fr.C,fr.n,-fr.half),B=add3(fr.C,fr.n,fr.half);
+    const corners=[add3(A,fr.v,-fr.fv/2),add3(B,fr.v,-fr.fv/2),add3(B,fr.v,fr.fv/2),add3(A,fr.v,fr.fv/2)];
+    for(let k=0;k<4;k++)line(corners[k],corners[(k+1)%4],col,1,[4,3]);
+    if(edit){const h=toCan(seg,handlePos(fr)),e=toCan(seg,add3(fr.C,fr.v,-fr.fv/2));ctx.setLineDash([]);ctx.strokeStyle=col;ctx.lineWidth=1*dpr;ctx.beginPath();ctx.moveTo(e[0],e[1]);ctx.lineTo(h[0],h[1]);ctx.stroke();ctx.fillStyle=col;ctx.beginPath();ctx.arc(h[0],h[1],4.5*dpr,0,7);ctx.fill();}
+  }else if(seg.plane==='cor'){
+    const yl=LOCG.cor.C[1],ca=fr.v[1];
+    for(let i=0;i<pp.slices;i++){const c=ci(i),bq=(yl-c[1])/ca;if(Math.abs(bq)>fr.fv/2)continue;const q=add3(c,fr.v,bq),cen=Math.abs(i-mid)<0.6;line(add3(q,fr.u,-fr.fu/2),add3(q,fr.u,fr.fu/2),cen?colC:col,cen?1.6:1);}
+  }else{
+    const corners=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>add3(add3(fr.C,fr.u,a*fr.fu/2),fr.v,b*fr.fv/2));
+    for(let k=0;k<4;k++)line(corners[k],corners[(k+1)%4],col,1.3);
+    // phase oversampling region, dotted, along the phase axis
+    const osk=1+pp.os/100;
+    if(pp.os>0){const ph=pp.phaseDir==='RL';const oc=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>add3(add3(fr.C,fr.u,a*fr.fu/2*(ph?osk:1)),fr.v,b*fr.fv/2*(ph?1:osk)));for(let k=0;k<4;k++)line(oc[k],oc[(k+1)%4],col,1,[2,3]);}
+    // phase direction marker
+    const ph=pp.phaseDir==='RL',ax=ph?fr.u:fr.v,len=(ph?fr.fu:fr.fv)/2;
+    const a=toCan(seg,add3(fr.C,ax,-len*0.25)),b=toCan(seg,add3(fr.C,ax,len*0.25));
+    ctx.setLineDash([]);ctx.strokeStyle=colC;ctx.lineWidth=1*dpr;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+    ctx.fillStyle=colC;ctx.font=`${10*dpr}px "IBM Plex Mono",monospace`;ctx.fillText('ph',b[0]+3*dpr,b[1]-3*dpr);
+  }
+  const lab=toCan(seg,seg.plane==='tra'?add3(add3(fr.C,fr.u,-fr.fu/2),fr.v,-fr.fv/2):add3(add3(fr.C,fr.n,fr.half),fr.v,-fr.fv/2));
+  ctx.fillStyle=col;ctx.font=`600 ${11*dpr}px "IBM Plex Mono",monospace`;ctx.fillText('1',lab[0]+3*dpr,lab[1]-4*dpr);
+  ctx.restore();
+}
+function hitPlan(seg,X,Y){
+  const pr=planProt();if(!pr||!pr.edit||!seg.rect||!seg.geom)return null;
+  const fr=groupFrame(pr.pp);
+  if(seg.plane==='sag'){const h=toCan(seg,handlePos(fr));if(Math.hypot(X-h[0],Y-h[1])<10*seg.rect.dpr)return'rot';}
+  const P=toPat(seg,X,Y),d=[P[0]-fr.C[0],P[1]-fr.C[1],P[2]-fr.C[2]];
+  const du=dot3(d,fr.u),dv=dot3(d,fr.v),dn=dot3(d,fr.n),m=4;
+  if(seg.plane==='sag')return Math.abs(dn)<=fr.half+m&&Math.abs(dv)<=fr.fv/2+m?'move':null;
+  if(seg.plane==='cor')return Math.abs(dn)<=fr.half+m&&Math.abs(du)<=fr.fu/2+m?'move':null;
+  return Math.abs(du)<=fr.fu/2+m&&Math.abs(dv)<=fr.fv/2+m?'move':null;
+}
+let planRaf=0;
+function planChanged(){
+  cancelAnimationFrame(planRaf);
+  planRaf=requestAnimationFrame(()=>{const p=sel();normalize(p);refreshCardValues();locSegs.forEach(drawSeg);updateSeg(segA);renderQueue();});
+}
+function drawLocs(){locSegs.forEach(s=>updateSeg(s));}
+
 function bindSeg(seg){
-  seg.cv.addEventListener('wheel',e=>{e.preventDefault();seg.slice+=e.deltaY>0?1:-1;updateSeg(seg);},{passive:false});
+  seg.cv.addEventListener('wheel',e=>{if(seg.kind==='loc')return;e.preventDefault();seg.slice+=e.deltaY>0?1:-1;updateSeg(seg);},{passive:false});
   seg.el.querySelectorAll('.snav button').forEach(b=>b.addEventListener('click',()=>{seg.slice+=Number(b.dataset.s);updateSeg(seg);}));
   let drag=null;
-  seg.cv.addEventListener('pointerdown',e=>{if(!seg.img)return;drag={x:e.clientX,y:e.clientY,w:seg.wl.w,c:seg.wl.c};seg.cv.setPointerCapture(e.pointerId);document.querySelectorAll('.seg').forEach(s=>s.classList.toggle('act',s===seg.el));});
-  seg.cv.addEventListener('pointermove',e=>{if(!drag)return;const k=Math.max(2,drag.w/250);seg.wl={w:Math.max(1,Math.round(drag.w+(e.clientX-drag.x)*k)),c:Math.round(drag.c+(e.clientY-drag.y)*k)};seg.userWL=true;mapWL(seg);seg.ov[3].textContent=`W ${seg.wl.w}\nC ${seg.wl.c}`;drawSeg(seg);});
-  const end=()=>{drag=null;};seg.cv.addEventListener('pointerup',end);seg.cv.addEventListener('pointercancel',end);
+  const xy=e=>{const r=seg.cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;return[(e.clientX-r.left)*dpr,(e.clientY-r.top)*dpr];};
+  seg.cv.addEventListener('pointerdown',e=>{
+    if(!seg.img)return;
+    document.querySelectorAll('.seg').forEach(s=>s.classList.toggle('act',s===seg.el));
+    seg.cv.setPointerCapture(e.pointerId);
+    const[X,Y]=xy(e);
+    const mode=seg.kind==='loc'?hitPlan(seg,X,Y):null;
+    if(mode){const p=sel();drag={mode,P0:toPat(seg,X,Y),C0:[p.offX,p.offY,p.pos]};return;}
+    drag={mode:'wl',x:e.clientX,y:e.clientY,w:seg.wl.w,c:seg.wl.c};
+  });
+  seg.cv.addEventListener('pointermove',e=>{
+    const[X,Y]=xy(e);
+    if(!drag){if(seg.kind==='loc'){const m=hitPlan(seg,X,Y);seg.cv.classList.toggle('grab',m==='move');seg.cv.classList.toggle('rot',m==='rot');}return;}
+    if(drag.mode==='wl'){const k=Math.max(2,drag.w/250);seg.wl={w:Math.max(1,Math.round(drag.w+(e.clientX-drag.x)*k)),c:Math.round(drag.c+(e.clientY-drag.y)*k)};seg.userWL=true;mapWL(seg);seg.ov[seg.kind==='loc'?1:3].textContent=`W ${seg.wl.w}\nC ${seg.wl.c}`;drawSeg(seg);return;}
+    const p=sel(),P=toPat(seg,X,Y);
+    if(drag.mode==='move'){
+      p.offX=Math.round(clamp(drag.C0[0]+P[0]-drag.P0[0],F.offX.min,F.offX.max)*10)/10;
+      p.offY=Math.round(clamp(drag.C0[1]+P[1]-drag.P0[1],F.offY.min,F.offY.max)*10)/10;
+      p.pos=Math.round(clamp(drag.C0[2]+P[2]-drag.P0[2],F.pos.min,F.pos.max)*10)/10;
+    }else{
+      const dy=drag.C0[1]-P[1],dz=drag.C0[2]-P[2];
+      p.tilt=Math.round(clamp(Math.atan2(dz,dy)*180/Math.PI,-45,45)*2)/2;
+    }
+    planChanged();
+  });
+  const end=()=>{if(drag&&drag.mode!=='wl'){const p=sel();setMsg(`Slice group: ${fmtVal('offX',p.offX)} ${fmtVal('offY',p.offY)} ${fmtVal('pos',p.pos)} · ${p.tilt?'T > C '+p.tilt.toFixed(1)+'°':'Transversal'}`,'ok');renderCard();}drag=null;};
+  seg.cv.addEventListener('pointerup',end);seg.cv.addEventListener('pointercancel',end);
   seg.cv.addEventListener('dblclick',()=>{if(!seg.img)return;seg.userWL=false;seg.wl=autoWL(seg.img);mapWL(seg);updateSeg(seg);});
 }
-bindSeg(segA);bindSeg(segB);
-new ResizeObserver(()=>{drawSeg(segA);drawSeg(segB);}).observe($('#viewer'));
+allSegs.forEach(bindSeg);
+new ResizeObserver(()=>{allSegs.forEach(drawSeg);}).observe($('#viewer'));
+let rafA=0;
+function refreshPreview(){cancelAnimationFrame(rafA);rafA=requestAnimationFrame(()=>updateSeg(segA));}
+function showSeries(p){segB.pid=p.id;segB.slice=p.loc?0:Math.floor((p.snap.slices-1)/2);segB.userWL=false;segB.key='';updateSeg(segB);}
 
 /* ---------- measurement ---------- */
 let actx=null,snd=null;
@@ -628,11 +889,12 @@ function stopSound(){if(snd){clearInterval(snd.iv);try{snd.o.stop();}catch(e){}s
 function setState(run,txt){$('#state').classList.toggle('run',run);$('#stateTxt').textContent=txt;}
 function go(){
   const p=sel();if(!p||p.state!=='pending'||state.running)return;
+  if(!p.loc&&!locDone()){setMsg('Primero mide el localizer: lo necesitas para planificar los cortes.','err');return;}
   const d=derive(p);
   if(d.sar>100){setMsg(`No se puede iniciar: SAR ${Math.round(d.sar)}% sobre el límite del modo normal. Ajusta el protocolo.`,'err');return;}
   p.state='running';p.t0=performance.now();p.dur=clamp(d.TA/1000/25,2.5,7)*1000;p.prog=0;state.running=p;
   setState(true,'Measuring');setMsg(`Midiendo ${p.name} — TA ${fmtTA(d.TA)} (simulación acelerada).`,'');
-  startSound(p);renderQueue();renderCard();requestAnimationFrame(tick);
+  startSound(p);renderQueue();renderCard();drawLocs();requestAnimationFrame(tick);
 }
 function tick(){
   const p=state.running;if(!p)return;
@@ -642,33 +904,47 @@ function tick(){
   $('#qnow').textContent=`Midiendo ${Math.round(p.prog*100)}%`;
   if(p.prog>=1)finish(p);else requestAnimationFrame(tick);
 }
-function acquire(p){
-  p.snap=Object.assign({},p,{B0:state.B0,path:state.path});delete p.snap.snap;delete p.snap.thumb;
-  p.series=++state.series;p.state='done';p.prog=0;
-  const img=computeImage(p.snap,zOf(p.snap,Math.floor((p.snap.slices-1)/2)),p.seed+Math.floor((p.snap.slices-1)/2)*101);
+function thumbOf(img){
   const wl=autoWL(img),c=document.createElement('canvas');c.width=img.W;c.height=img.H;
   const ctx=c.getContext('2d'),id=ctx.createImageData(img.W,img.H),lo=wl.c-wl.w/2;
   for(let k=0;k<img.data.length;k++){const v=clamp((img.data[k]-lo)*255/wl.w,0,255);id.data[k*4]=id.data[k*4+1]=id.data[k*4+2]=v;id.data[k*4+3]=255;}
   ctx.putImageData(id,0,0);
   const t=document.createElement('canvas');t.width=t.height=68;const tc=t.getContext('2d');tc.fillStyle='#000';tc.fillRect(0,0,68,68);
   const s=Math.min(68/img.fovW,68/img.fovH);tc.drawImage(c,(68-img.fovW*s)/2,(68-img.fovH*s)/2,img.fovW*s,img.fovH*s);
-  p.thumb=t.toDataURL();
+  return t.toDataURL();
+}
+function acquire(p){
+  p.snap=Object.assign({},p,{B0:state.B0,path:state.path});delete p.snap.snap;delete p.snap.thumb;delete p.snap.locImgs;
+  p.series=++state.series;p.state='done';p.prog=0;
+  if(p.loc){
+    p.locImgs={};for(const pl of['sag','cor','tra'])p.locImgs[pl]=computePlane(p.snap,geomLoc(p.snap,pl),p.seed+pl.length*977);
+    p.thumb=thumbOf(p.locImgs.sag);
+  }else{
+    const mid=Math.floor((p.snap.slices-1)/2);
+    p.thumb=thumbOf(computePlane(p.snap,geomSlice(p.snap,mid),p.seed+mid*101));
+  }
 }
 function finish(p){
   stopSound();state.running=null;acquire(p);
   setState(false,'Ready');$('#qnow').textContent='';
-  setMsg(`${p.name} medido: serie ${p.series}.`,'ok');
-  showSeries(p);
+  if(p.loc){drawLocs();setMsg(`Localizer medido (serie ${p.series}). Paso 2: abre un protocolo y planifica el slice group sobre los localizers.`,'ok');}
+  else{showSeries(p);setMsg(`${p.name} medido: serie ${p.series}.`,'ok');}
   if(state.selId===p.id){const next=state.queue.find(q=>q.state==='pending');if(next){select(next.id);return;}}
-  renderQueue();renderCard();
+  renderQueue();renderCard();drawLocs();
 }
 function stop(){
   const p=state.running;if(!p)return;stopSound();state.running=null;p.state='pending';p.prog=0;
-  setState(false,'Ready');$('#qnow').textContent='';setMsg(`Medición de ${p.name} detenida.`,'warn');renderQueue();renderCard();
+  setState(false,'Ready');$('#qnow').textContent='';setMsg(`Medición de ${p.name} detenida.`,'warn');renderQueue();renderCard();drawLocs();
 }
 
 /* ---------- messages & events ---------- */
 function setMsg(t,l){const m=$('#msg');m.textContent=t;m.className='msg '+(l||'');}
+$('#tPatient').addEventListener('click',()=>showView('patient'));
+$('#tExam').addEventListener('click',()=>{if(state.patient)showView('exam');});
+$('#wlBody').addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr)fillForm(Number(tr.dataset.i));});
+$('#wlBody').addEventListener('keydown',e=>{if(e.key==='Enter'){const tr=e.target.closest('tr');if(tr)fillForm(Number(tr.dataset.i));}});
+$('#regBtn').addEventListener('click',register);
+$('#regForm').addEventListener('submit',e=>{e.preventDefault();register();});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;state.tab=b.dataset.tab;renderCard();});
 $('#cbody').addEventListener('change',e=>{const k=e.target.dataset.k;if(k)commit(k,e.target.value);});
 $('#cbody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.k&&e.target.tagName==='INPUT'){e.preventDefault();commit(e.target.dataset.k,e.target.value,e.target.id);}
@@ -679,18 +955,15 @@ $('#queue').addEventListener('click',e=>{const li=e.target.closest('.qi');if(li)
 $('#queue').addEventListener('keydown',e=>{if(e.key==='Enter'){const li=e.target.closest('.qi');if(li)select(Number(li.dataset.id));}});
 $('#lib').addEventListener('click',e=>{const b=e.target.closest('.add');if(!b)return;const p=newProt(LIB[Number(b.dataset.i)]);state.queue.push(p);setMsg(`${p.name} agregado a la cola.`,'ok');select(p.id);});
 $('#rep').addEventListener('click',()=>{const p=sel();if(!p)return;const src=p.snap||p;const c={};Object.keys(BASE).concat(['name','seq','TR','TE']).forEach(k=>c[k]=src[k]);const n=newProt(c);state.queue.splice(state.queue.indexOf(p)+1,0,n);setMsg(`Copia de ${p.name} lista para editar.`,'ok');select(n.id);});
-$('#del').addEventListener('click',()=>{const p=sel();if(!p||p.state!=='pending')return;const i=state.queue.indexOf(p);state.queue.splice(i,1);const n=state.queue[Math.min(i,state.queue.length-1)];setMsg(`${p.name} eliminado.`,'');if(n)select(n.id);else{state.selId=null;renderQueue();renderCard();refreshPreview();}});
+$('#cpy').addEventListener('click',()=>{const p=sel(),s=p&&lastGeoSeries(p);if(!s||p.state!=='pending')return;['pos','offX','offY','tilt'].forEach(k=>p[k]=s.snap[k]);setMsg(`Posición copiada de ${s.name} (serie ${s.series}).`,'ok');renderCard();refreshPreview();drawLocs();});
+$('#del').addEventListener('click',()=>{const p=sel();if(!p||p.state!=='pending')return;const i=state.queue.indexOf(p);state.queue.splice(i,1);const n=state.queue[Math.min(i,state.queue.length-1)];setMsg(`${p.name} eliminado.`,'');if(n)select(n.id);else{state.selId=null;renderQueue();renderCard();refreshPreview();drawLocs();}});
 $('#b0').addEventListener('change',e=>{state.B0=Number(e.target.value);const p=sel();const d=p&&derive(p);setMsg(`Campo ${state.B0} T.${d&&d.sar>100?' El protocolo abierto supera el SAR: ajústalo antes de medir.':''}`,d&&d.sar>100?'err':'ok');renderQueue();renderCard();refreshPreview();});
 $('#path').addEventListener('change',e=>{state.path=e.target.value;setMsg('Fantoma cambiado. Las series ya medidas conservan el fantoma con que se adquirieron.','ok');refreshPreview();});
 $('#snd').addEventListener('click',e=>{state.sound=!state.sound;e.currentTarget.setAttribute('aria-pressed',state.sound);if(!state.sound)stopSound();else if(state.running)startSound(state.running);});
 
-/* ---------- start: localizer already measured, T2 TSE open ---------- */
-renderLib();
-state.queue=['localizer','t2_tse_tra','t1_se_tra','t2_tirm_tra_dark-fluid','ep2d_diff_tra_b1000','t2_fl2d_tra_hemo'].map(n=>newProt(LIB.find(t=>t.name===n)));
-acquire(state.queue[0]);
-showSeries(state.queue[0]);
-select(state.queue[1].id);
-setMsg('Ejemplo cargado: localizer medido, t2_tse_tra abierto. Cambia parámetros y la vista previa se recalcula.','');
+/* ---------- start on the Patient task with the first worklist entry loaded ---------- */
+renderLib();renderWL();fillForm(0);
+setMsg('Ejemplo cargado en el registro. Presiona Exam para registrar al paciente.','');
 </script>
 
 </body>

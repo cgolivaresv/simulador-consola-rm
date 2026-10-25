@@ -6,6 +6,9 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 
 ## Qué hace hoy
 
+- **Patient**: worklist de ejemplo (pacientes ficticios) y registro con nombre, ID, fecha de nacimiento, sexo, estatura y peso (obligatorios para el SAR), posición, bobina y programa. Sin registro no se puede entrar a Exam.
+- **Localizer en 3 planos** (sagital, coronal, transversal). Sin localizer medido no se puede medir ningún otro protocolo.
+- **Planificación gráfica del slice group** sobre los localizers: arrastrar para mover (R-L, A-P, F-H), arrastrar el punto del sagital para angular T > C, caja de FoV, oversampling de fase y dirección de fase en el transversal. Los valores se reflejan en la tarjeta Geometry y la vista previa recalcula los cortes angulados. Botón *Copiar posición* desde la última serie medida.
 - **Program Library** (Head › Brain) y **Exam Queue** con estados pendiente / midiendo / medido, TA por protocolo y tiempo restante del examen.
 - **Tarjetas de parámetros** Routine, Contrast, Resolution y Sequence, con nombres de parámetros como en consola (TR, TE, TI, Flip angle, Turbo factor, Base resolution, Phase resolution, Phase oversampling, Accel. factor PE, Bandwidth, RF pulse type…).
 - **Restricciones reales**: TE efectivo múltiplo del echo spacing en TSE, TE y TR mínimos según bandwidth/turbo factor/TI, concatenaciones cuando los cortes no caben en un TR, bloqueo por SAR.
@@ -16,7 +19,7 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 
 ## Próximos pasos
 
-1. Flujo de paciente → localizer en 3 planos → planificación de cortes arrastrando el slice group.
+1. Fantoma más realista (por ejemplo, mapas de BrainWeb) y orientaciones sagital/coronal para los protocolos.
 2. Más regiones y protocolos (columna, rodilla, abdomen) y fantomas.
 3. Tarjeta Physio / Inline y bobinas.
 4. Modo instructor con casos y evaluación.
