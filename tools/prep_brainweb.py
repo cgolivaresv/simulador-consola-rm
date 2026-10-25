@@ -18,7 +18,8 @@ v=vals[cnt.argmax(-1)]
 mp={0:0,23:3,46:4,70:5,93:2,116:7,139:7,162:1,185:10,209:2,232:7,255:2}
 lab=np.zeros(v.shape,np.uint8)
 for k,t in mp.items(): lab[v==k]=t
-lab=lab.transpose(2,0,1).copy()                # -> [z][y][x], y = posterior+, x = left+
+# BrainWeb is stored RAS (axis0 → anterior, axis1 → patient right); the console is LPS like DICOM
+lab=lab.transpose(2,0,1)[:,::-1,::-1].copy()   # -> [z][y][x], y = posterior+, x = left+
 NZ,NY,NX=lab.shape
 br=np.argwhere(np.isin(lab,[4,5]))
 cz=br[:,0].min()+ (br[:,0].max()-br[:,0].min())*0.47   # put ventricles/AC near z≈+10
@@ -57,4 +58,5 @@ raw=out.tobytes()
 import base64
 open('brainweb.gz.txt','w').write(base64.b64encode(gzip.compress(raw,9)).decode())
 meta={'nx':NX,'ny':NY,'nz':NZ,'ox':float(-cx),'oy':float(-cy),'oz':float(-cz+10),'d':1}
-print(json.dumps(meta),'ms vox',int(ms.sum()),'stroke vox',int(st.sum()),'size',len(gzip.compress(raw,9)))
+print(json.dumps(meta)  # copy ox/oy/oz into const BW in index.html
+      ,'ms vox',int(ms.sum()),'stroke vox',int(st.sum()),'size',len(gzip.compress(raw,9)))
