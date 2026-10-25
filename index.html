@@ -1239,7 +1239,7 @@ $('#impDir').addEventListener('change',e=>{readImport(e.target.files);e.target.v
 $('#impOut').addEventListener('change',e=>{const s=e.target.closest('select[data-i]');if(s)impSeries[+s.dataset.i].role=s.value;});
 $('#impOut').addEventListener('click',e=>{if(e.target.id==='impBuild')buildImport();});
 
-const BW={nx:181,ny:217,nz:181,ox:-89.5,oy:-110.5,oz:-64.26};
+const BW={nx:181,ny:217,nz:181,ox:-90.5,oy:-105.5,oz:-64.26};
 async function gunzipMaybe(buf){
   const u=new Uint8Array(buf,0,2);
   if(u[0]!==0x1f||u[1]!==0x8b)return buf;
