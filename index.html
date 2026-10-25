@@ -66,6 +66,20 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 .wl tbody tr:hover{background:var(--panel2)}
 .wl tbody tr.sel{background:var(--sel);color:var(--sel-fg)}
 .wlnote{padding:8px;color:var(--dim);font-size:12px}
+.pcol{display:grid;grid-template-rows:auto minmax(0,1fr);gap:6px;min-height:0}
+.imp{padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;min-height:0}
+.imp p{margin:0;color:var(--muted);font-size:12.5px;max-width:70ch}
+.imp .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filebtn{position:relative;overflow:hidden;display:inline-block}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.chk{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}
+.sertab{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.sertab th{text-align:left;font:600 11px var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:4px 6px;border-bottom:1px solid var(--line)}
+.sertab td{padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.sertab select{font:12px var(--mono)}
+.anon{border:1px solid var(--line);background:var(--field);padding:8px 10px;font-size:12px;color:var(--muted)}
+.anon b{color:var(--ok);font-weight:500}
+.anon ul{margin:4px 0 0;padding-left:18px}
 .reg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 18px;padding:12px;align-content:start;overflow:auto}
 .reg .fld{grid-template-columns:120px minmax(0,1fr)}
 .reg input,.reg select{width:100%;background:var(--field);border:1px solid var(--line2);padding:4px 6px;font:12.5px var(--mono);color-scheme:dark}
@@ -183,7 +197,8 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
     <div class="pat" id="patBar"><span>Sin paciente registrado</span></div>
     <div class="ctl">
       <label for="b0">Campo <select id="b0"><option value="1.5">1.5 T</option><option value="3">3 T</option></select></label>
-      <label for="path">Fantoma <select id="path"><option value="normal">Cerebro normal</option><option value="ms">Lesiones de sustancia blanca (EM)</option><option value="stroke">Infarto agudo ACM izquierda</option></select></label>
+      <label for="phantom">Fantoma <select id="phantom"><option value="geo">Geométrico</option><option value="bw" disabled>BrainWeb · anatomía real (cargando…)</option></select></label>
+      <label for="path">Patología <select id="path"><option value="normal">Ninguna</option><option value="ms">Lesiones de sustancia blanca (EM)</option><option value="stroke">Infarto agudo ACM izquierda</option></select></label>
       <button class="tbtn" id="snd" aria-pressed="false" type="button">Ruido gradientes</button>
       <div class="state" id="state"><i></i><span id="stateTxt">Ready</span></div>
     </div>
@@ -191,11 +206,25 @@ select{background:var(--field);border:1px solid var(--line2);padding:2px 6px;bor
 
   <!-- PATIENT TASK -->
   <div class="ptask" id="viewPatient">
+    <div class="pcol">
     <section class="panel">
       <div class="ph"><h2>Worklist · Scheduler</h2><span class="path" id="wlDate"></span></div>
       <div class="wlw"><table class="wl"><thead><tr><th>Paciente</th><th>ID</th><th>Sexo</th><th>Nac.</th><th>Procedimiento</th><th>Hora</th></tr></thead><tbody id="wlBody"></tbody></table></div>
-      <div class="wlnote">Lista de trabajo de ejemplo con pacientes ficticios. Al elegir uno se llena el formulario y el fantoma sigue la indicación del examen; puedes cambiar ambos.</div>
+      <div class="wlnote">Lista de trabajo de ejemplo con pacientes ficticios. Al elegir uno se llena el formulario y la patología sigue la indicación del examen; puedes cambiar ambas.</div>
     </section>
+    <section class="panel">
+      <div class="ph"><h2>Fantoma · Datos propios</h2><span class="path" id="impState">local</span></div>
+      <div class="imp">
+        <p>Carga mapas cuantitativos T1, T2 y PD (por ejemplo MAGiC/MDME) o una segmentación de tejidos (FreeSurfer, SynthSeg o FSL FAST), en DICOM sin comprimir o NIfTI. Todo se procesa en este navegador: los archivos no se suben a ningún servidor y los datos identificatorios se descartan al leerlos.</p>
+        <div class="row">
+          <span class="btn filebtn">Elegir archivos<input type="file" id="impFiles" multiple aria-label="Elegir archivos DICOM o NIfTI"></span>
+          <span class="btn filebtn">Elegir carpeta<input type="file" id="impDir" webkitdirectory multiple aria-label="Elegir carpeta DICOM"></span>
+          <label class="chk" for="impDeface"><input type="checkbox" id="impDeface" checked> Ocultar rostro (defacing simple)</label>
+        </div>
+        <div id="impOut"></div>
+      </div>
+    </section>
+    </div>
     <section class="panel">
       <div class="ph"><h2>Patient Registration</h2><span class="path">Head › Brain</span></div>
       <form class="reg" id="regForm" novalidate>
@@ -287,8 +316,9 @@ const dot3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 
 /* ---------- tissue table: PD, T1, T2, T2*, ADC(x1e-3) at 1.5 T ---------- */
 // 0 air 1 bone 2 fat 3 CSF 4 GM 5 WM 6 lesion 7 muscle/skin 8 vitreous 9 acute infarct
-const TIS=[[0,1,1,1,0],[0.04,500,2,1,0.1],[0.95,260,80,50,0.01],[1,3700,1800,1200,3.0],[0.82,1000,95,55,0.85],[0.70,640,75,45,0.72],[0.86,1150,170,110,1.15],[0.72,870,45,28,1.5],[0.98,3200,900,600,2.6],[0.84,1080,120,70,0.38]];
-function tissues(B0){const T=TIS.map(r=>r.slice());if(B0===3){const m=[1,1,1.42,1.03,1.33,1.3,1.3,1.6,1.08,1.32];T.forEach((r,i)=>{r[1]*=m[i];r[2]*=0.92;r[3]*=0.6;});}return T;}
+// 10 flowing blood
+const TIS=[[0,1,1,1,0],[0.04,500,2,1,0.1],[0.95,260,80,50,0.01],[1,3700,1800,1200,3.0],[0.82,1000,95,55,0.85],[0.70,640,75,45,0.72],[0.86,1150,170,110,1.15],[0.72,870,45,28,1.5],[0.98,3200,900,600,2.6],[0.84,1080,120,70,0.38],[0.8,1350,50,40,2.0]];
+function tissues(B0){const T=TIS.map(r=>r.slice());if(B0===3){const m=[1,1,1.42,1.03,1.33,1.3,1.3,1.6,1.08,1.32,1.25];T.forEach((r,i)=>{r[1]*=m[i];r[2]*=0.92;r[3]*=0.6;});}return T;}
 
 /* ---------- procedural head phantom (mm; x→patient left, y→posterior, z→head) ---------- */
 const G=480,RES=0.5,HALF=120;
@@ -446,18 +476,66 @@ function normalize(p){
   }
   return[...new Set(msgs)];
 }
+function tissueSig(pp,pd,t1,t2,t2s,adc,fat){
+  if(pp.fat==='fs'&&fat)pd*=0.06;
+  if(pp.seq==='tse'&&fat)t2*=2.2;
+  const E1=Math.exp(-pp.TR/t1);
+  if(pp.seq==='gre'){const a=pp.FA*Math.PI/180;return pd*Math.sin(a)*(1-E1)/(1-Math.cos(a)*E1)*Math.exp(-pp.TE/t2s);}
+  const lon=pp.prep==='ir'?Math.abs(1-2*Math.exp(-pp.TI/t1)+E1):(1-E1);
+  let s=pd*lon*Math.exp(-pp.TE/t2);
+  if(pp.seq==='epi'&&pp.b>0)s*=Math.exp(-pp.b*adc/1000);
+  return s;
+}
 function signals(pp){
-  const T=tissues(pp.B0),out=new Float32Array(10);
-  for(let i=1;i<10;i++){
-    let[pd,t1,t2,t2s,adc]=T[i];
-    if(pp.fat==='fs'&&i===2)pd*=0.06;
-    if(pp.seq==='tse'&&i===2)t2*=2.2;
-    const E1=Math.exp(-pp.TR/t1);let s;
-    if(pp.seq==='gre'){const a=pp.FA*Math.PI/180;s=pd*Math.sin(a)*(1-E1)/(1-Math.cos(a)*E1)*Math.exp(-pp.TE/t2s);}
-    else{const lon=pp.prep==='ir'?Math.abs(1-2*Math.exp(-pp.TI/t1)+E1):(1-E1);s=pd*lon*Math.exp(-pp.TE/t2);if(pp.seq==='epi'&&pp.b>0)s*=Math.exp(-pp.b*adc/1000);}
-    out[i]=s;
-  }
+  const T=tissues(pp.B0),out=new Float32Array(11);
+  for(let i=1;i<10;i++){const[pd,t1,t2,t2s,adc]=T[i];out[i]=tissueSig(pp,pd,t1,t2,t2s,adc,i===2);}
+  // flowing blood: flow void in spin echo and EPI, inflow enhancement in gradient echo
+  out[10]=pp.seq==='gre'?0.55*Math.sin(pp.FA*Math.PI/180)*Math.exp(-pp.TE/40):0.02;
   return out;
+}
+/* ---------- volume phantoms (BrainWeb, imported labels or quantitative maps) ---------- */
+const PHANTOMS={geo:{type:'geo',name:'Geométrico'}};
+// trilinear weights for a voxel grid with arbitrary orientation (DICOM-style: R = row dir, Cd = column dir, N = slice normal)
+function makeInterp(V){
+  const{nx,ny,nz}=V,ox=V.O[0]+V.shift[0],oy=V.O[1]+V.shift[1],oz=V.O[2]+V.shift[2];
+  const R=V.R,Cd=V.Cd,N=V.N,isx=1/V.sx,isy=1/V.sy,isz=1/V.sz;
+  const idx=new Int32Array(8),w=new Float32Array(8);
+  const f=(x,y,z)=>{
+    const dx=x-ox,dy=y-oy,dz=z-oz;
+    let fc=(dx*R[0]+dy*R[1]+dz*R[2])*isx,fr=(dx*Cd[0]+dy*Cd[1]+dz*Cd[2])*isy,fk=(dx*N[0]+dy*N[1]+dz*N[2])*isz;
+    if(fc<-0.5||fr<-0.5||fk<-0.5||fc>nx-0.5||fr>ny-0.5||fk>nz-0.5)return false;
+    if(fc<0)fc=0;else if(fc>nx-1)fc=nx-1;
+    if(fr<0)fr=0;else if(fr>ny-1)fr=ny-1;
+    if(fk<0)fk=0;else if(fk>nz-1)fk=nz-1;
+    const c0=fc|0,r0=fr|0,k0=fk|0,c1=c0+1<nx?c0+1:c0,r1=r0+1<ny?r0+1:r0,k1=k0+1<nz?k0+1:k0;
+    const tx=fc-c0,ty=fr-r0,tz=fk-k0,ux=1-tx,uy=1-ty,uz=1-tz;
+    const b00=(k0*ny+r0)*nx,b01=(k0*ny+r1)*nx,b10=(k1*ny+r0)*nx,b11=(k1*ny+r1)*nx;
+    idx[0]=b00+c0;w[0]=ux*uy*uz;idx[1]=b00+c1;w[1]=tx*uy*uz;idx[2]=b01+c0;w[2]=ux*ty*uz;idx[3]=b01+c1;w[3]=tx*ty*uz;
+    idx[4]=b10+c0;w[4]=ux*uy*tz;idx[5]=b10+c1;w[5]=tx*uy*tz;idx[6]=b11+c0;w[6]=ux*ty*tz;idx[7]=b11+c1;w[7]=tx*ty*tz;
+    return true;
+  };
+  f.idx=idx;f.w=w;return f;
+}
+function makeSampler(pp){
+  const ph=PHANTOMS[pp.phantom];
+  if(!ph||ph.type==='geo'){const sig=signals(pp),path=pp.path;return(x,y,z)=>(x<=-HALF||x>=HALF||y<=-HALF||y>=HALF)?0:sig[labelPoint(x,y,z,path)];}
+  const it=makeInterp(ph.vol),I=it.idx,Wt=it.w;
+  if(ph.type==='labels'){
+    // labels carry pathology flags: +64 = MS lesion, +128 = acute infarct
+    const sig=signals(pp),T=new Float32Array(256),d=ph.vol.data;
+    for(let v=0;v<256;v++){let l=v&63;if(pp.path==='ms'&&(v&64))l=6;else if(pp.path==='stroke'&&(v&128))l=9;T[v]=sig[l]||0;}
+    return(x,y,z)=>{if(!it(x,y,z))return 0;let s=0;for(let k=0;k<8;k++)s+=T[d[I[k]]]*Wt[k];return s;};
+  }
+  const{t1,t2,pd}=ph,t2sF=pp.B0===3?0.4:0.6;
+  return(x,y,z)=>{
+    if(!it(x,y,z))return 0;
+    // nearest voxel: interpolating T1/T2 across a boundary would invent tissue that does not exist
+    let m=0;for(let k=1;k<8;k++)if(Wt[k]>Wt[m])m=k;
+    const i=I[m],a=t1[i],b=t2[i],c=pd[i];
+    if(c<=0.01||a<=1||b<=1)return 0;
+    const fat=a<420&&b>35&&b<160,adc=b>400?3.0:b>130?1.2:0.8;
+    return tissueSig(pp,c,a,b,b*t2sF,adc,fat);
+  };
 }
 function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
 
@@ -477,17 +555,16 @@ const LOCG={
 function geomLoc(pp,plane){const g=LOCG[plane];return{C:g.C,u:g.u,v:g.v,n:null,fovW:pp.fovRead,fovH:pp.fovRead,W:pp.base,H:pp.base,phaseH:false,period:pp.fovRead*4,name:g.name};}
 
 function computePlane(pp,g,seed){
-  const d=derive(pp,pp.B0),sig=signals(pp),path=pp.path;
+  const d=derive(pp,pp.B0),path=pp.path;
   const{C,u,v,fovW,fovH,W,H,phaseH,period}=g;
   const dx=fovW/W,dy=fovH/H;
   const nsx=clamp(Math.ceil(dx/0.6),1,4),nsy=clamp(Math.ceil(dy/0.6),1,4);
-  const fast=u[0]===1&&u[1]===0&&u[2]===0&&v[2]===0&&v[0]===0;
-  const Lf=fast?getLabels(C[2],path):null;
+  const fast=(pp.phantom||'geo')==='geo'&&u[0]===1&&u[1]===0&&u[2]===0&&v[2]===0&&v[0]===0;
+  const Lf=fast?getLabels(C[2],path):null,sig=fast?signals(pp):null,S=fast?null:makeSampler(pp);
   const samp=(a,b)=>{
     const x=C[0]+a*u[0]+b*v[0],y=C[1]+a*u[1]+b*v[1];
-    if(x<=-HALF||x>=HALF||y<=-HALF||y>=HALF)return 0;
-    if(Lf)return sig[Lf[((y+HALF)/RES|0)*G+((x+HALF)/RES|0)]];
-    return sig[labelPoint(x,y,C[2]+a*u[2]+b*v[2],path)];
+    if(Lf)return(x<=-HALF||x>=HALF||y<=-HALF||y>=HALF)?0:sig[Lf[((y+HALF)/RES|0)*G+((x+HALF)/RES|0)]];
+    return S(x,y,C[2]+a*u[2]+b*v[2]);
   };
   const out=new Float32Array(W*H);
   for(let j=0;j<H;j++)for(let i=0;i<W;i++){
@@ -524,7 +601,7 @@ const SEQLBL={tse:'tse',se:'se',gre:'fl',epi:'ep_b'};
 let uid=1;
 function newProt(t){const p=Object.assign({},BASE,t);p.id=uid++;p.state='pending';p.prog=0;p.seed=(Math.random()*1e9)|0;normalize(p);p.snrRef=derive(p).snr;return p;}
 
-const state={B0:1.5,path:'normal',sound:false,queue:[],selId:null,series:0,running:null,tab:'Routine',patient:null,view:'patient'};
+const state={B0:1.5,path:'normal',phantom:'geo',sound:false,queue:[],selId:null,series:0,running:null,tab:'Routine',patient:null,view:'patient'};
 const locDone=()=>state.queue.find(p=>p.loc&&p.state==='done');
 
 /* ---------- patient task ---------- */
@@ -708,7 +785,7 @@ const segSag=makeSeg('#segSag','loc','sag'),segCor=makeSeg('#segCor','loc','cor'
 const locSegs=[segSag,segCor,segTra],allSegs=[segSag,segCor,segTra,segA,segB];
 const overlayPatient=()=>{const P=state.patient;return P?`${P.last}^${P.first}\n${P.id}\n${P.sex} ${P.age}Y ${P.w}kg`:'';};
 function segParams(seg){
-  if(seg.kind==='preview'){const p=sel();return p?{p,pp:Object.assign({},p,{B0:state.B0,path:state.path})}:null;}
+  if(seg.kind==='preview'){const p=sel();return p?{p,pp:Object.assign({},p,envParams())}:null;}
   if(seg.kind==='loc'){const p=locDone();return p?{p,pp:p.snap}:null;}
   const p=state.queue.find(q=>q.id===seg.pid);return p&&p.snap?{p,pp:p.snap}:null;
 }
@@ -914,7 +991,7 @@ function thumbOf(img){
   return t.toDataURL();
 }
 function acquire(p){
-  p.snap=Object.assign({},p,{B0:state.B0,path:state.path});delete p.snap.snap;delete p.snap.thumb;delete p.snap.locImgs;
+  p.snap=Object.assign({},p,envParams());delete p.snap.snap;delete p.snap.thumb;delete p.snap.locImgs;
   p.series=++state.series;p.state='done';p.prog=0;
   if(p.loc){
     p.locImgs={};for(const pl of['sag','cor','tra'])p.locImgs[pl]=computePlane(p.snap,geomLoc(p.snap,pl),p.seed+pl.length*977);
@@ -938,6 +1015,7 @@ function stop(){
 }
 
 /* ---------- messages & events ---------- */
+function envParams(){const ph=PHANTOMS[state.phantom]||PHANTOMS.geo;return{B0:state.B0,phantom:state.phantom,path:ph.imported?'normal':state.path};}
 function setMsg(t,l){const m=$('#msg');m.textContent=t;m.className='msg '+(l||'');}
 $('#tPatient').addEventListener('click',()=>showView('patient'));
 $('#tExam').addEventListener('click',()=>{if(state.patient)showView('exam');});
@@ -958,11 +1036,230 @@ $('#rep').addEventListener('click',()=>{const p=sel();if(!p)return;const src=p.s
 $('#cpy').addEventListener('click',()=>{const p=sel(),s=p&&lastGeoSeries(p);if(!s||p.state!=='pending')return;['pos','offX','offY','tilt'].forEach(k=>p[k]=s.snap[k]);setMsg(`Posición copiada de ${s.name} (serie ${s.series}).`,'ok');renderCard();refreshPreview();drawLocs();});
 $('#del').addEventListener('click',()=>{const p=sel();if(!p||p.state!=='pending')return;const i=state.queue.indexOf(p);state.queue.splice(i,1);const n=state.queue[Math.min(i,state.queue.length-1)];setMsg(`${p.name} eliminado.`,'');if(n)select(n.id);else{state.selId=null;renderQueue();renderCard();refreshPreview();drawLocs();}});
 $('#b0').addEventListener('change',e=>{state.B0=Number(e.target.value);const p=sel();const d=p&&derive(p);setMsg(`Campo ${state.B0} T.${d&&d.sar>100?' El protocolo abierto supera el SAR: ajústalo antes de medir.':''}`,d&&d.sar>100?'err':'ok');renderQueue();renderCard();refreshPreview();});
-$('#path').addEventListener('change',e=>{state.path=e.target.value;setMsg('Fantoma cambiado. Las series ya medidas conservan el fantoma con que se adquirieron.','ok');refreshPreview();});
+$('#path').addEventListener('change',e=>{state.path=e.target.value;setMsg('Patología cambiada. Las series ya medidas conservan la anatomía con que se adquirieron.','ok');refreshPreview();});
+$('#phantom').addEventListener('change',e=>setPhantom(e.target.value));
+function setPhantom(id){
+  if(!PHANTOMS[id])return;state.phantom=id;$('#phantom').value=id;
+  const imp=!!PHANTOMS[id].imported;$('#path').disabled=imp;
+  labelCache.clear();
+  setMsg(`Fantoma: ${PHANTOMS[id].name}.${imp?' Los datos importados traen su propia anatomía: la patología simulada queda desactivada.':''} El localizer y las series nuevas usarán esta anatomía.`,'ok');
+  refreshPreview();
+}
+function addPhantomOption(id){const o=document.createElement('option');o.value=id;o.textContent=PHANTOMS[id].name;$('#phantom').appendChild(o);}
 $('#snd').addEventListener('click',e=>{state.sound=!state.sound;e.currentTarget.setAttribute('aria-pressed',state.sound);if(!state.sound)stopSound();else if(state.running)startSound(state.running);});
 
 /* ---------- start on the Patient task with the first worklist entry loaded ---------- */
-renderLib();renderWL();fillForm(0);
+/* ---------- local import: DICOM / NIfTI → quantitative or label phantom (nothing leaves the browser) ---------- */
+const PHI_TAGS={'00100010':'Nombre del paciente','00100020':'ID del paciente','00100030':'Fecha de nacimiento','00100040':'Sexo','00101010':'Edad','00101020':'Estatura','00101030':'Peso','00101040':'Dirección del paciente','00102154':'Teléfono','00080080':'Institución','00080081':'Dirección de la institución','00080090':'Médico tratante','00081050':'Médico informante','00081070':'Operador','00081010':'Nombre de la estación','00081040':'Departamento','00181000':'N° de serie del equipo','00080020':'Fecha del estudio','00080021':'Fecha de la serie','00080022':'Fecha de adquisición','00080023':'Fecha de contenido','00080030':'Hora del estudio','00080031':'Hora de la serie','00080032':'Hora de adquisición','00080050':'Número de acceso','00200010':'ID del estudio','0020000D':'UID del estudio','0020000E':'UID de la serie','00080018':'UID de la instancia','00321032':'Médico solicitante','00400254':'Descripción del procedimiento','00380010':'N° de admisión'};
+const KEEP={'00080060':'s','0008103E':'s','00080008':'s','0020000E':'s','00200013':'s','00200032':'s','00200037':'s','00280030':'s','00180050':'s','00180088':'s','00280010':'u','00280011':'u','00280100':'u','00280103':'u','00280002':'u','00281052':'s','00281053':'s'};
+const LONGVR=new Set(['OB','OW','OF','SQ','UT','UN','OD','OL','OV','UC','UR','SV','UV']);
+const hx=(g,e)=>(g.toString(16).padStart(4,'0')+e.toString(16).padStart(4,'0')).toUpperCase();
+function parseDicom(buf){
+  const dv=new DataView(buf),n=buf.byteLength;let off=0;
+  if(n>132&&dv.getUint32(128)===0x4449434D)off=132;
+  const out={v:{},phi:new Set(),priv:0,pixel:null};
+  let explicit=true,ts='1.2.840.10008.1.2.1',metaDone=false;
+  if(off===0){const c0=dv.getUint8(4),c1=dv.getUint8(5);explicit=c0>=65&&c0<=90&&c1>=65&&c1<=90;}
+  const str=(o,l)=>{let t='';for(let i=0;i<l;i++){const c=dv.getUint8(o+i);if(c)t+=String.fromCharCode(c);}return t.trim();};
+  const head=(o,exp)=>{
+    const g=dv.getUint16(o,true),e=dv.getUint16(o+2,true);
+    if(g===0xFFFE)return{g,e,vr:'',len:dv.getUint32(o+4,true),vo:o+8};
+    if(exp){const vr=String.fromCharCode(dv.getUint8(o+4),dv.getUint8(o+5));
+      if(LONGVR.has(vr))return{g,e,vr,len:dv.getUint32(o+8,true),vo:o+12};
+      return{g,e,vr,len:dv.getUint16(o+6,true),vo:o+8};}
+    return{g,e,vr:'',len:dv.getUint32(o+4,true),vo:o+8};
+  };
+  // skip an undefined-length sequence or item, honouring nested ones
+  const skipUndef=(o,exp)=>{
+    while(o+8<=n){const h=head(o,exp);
+      if(h.g===0xFFFE&&(h.e===0xE0DD||h.e===0xE00D))return h.vo;
+      if(h.len===0xFFFFFFFF)o=skipUndef(h.vo,exp);else o=h.vo+h.len;}
+    return n;
+  };
+  while(off+8<=n){
+    if(!metaDone&&dv.getUint16(off,true)!==0x0002){metaDone=true;
+      if(ts==='1.2.840.10008.1.2')explicit=false;
+      else if(ts!=='1.2.840.10008.1.2.1')throw new Error('comprimido');}
+    const h=head(off,metaDone?explicit:true);
+    const key=hx(h.g,h.e);
+    if(h.g===0x0002&&h.e===0x0010)ts=str(h.vo,h.len).replace(/\0/g,'');
+    if(h.g%2===1)out.priv++;
+    if(PHI_TAGS[key]||h.g===0x0010)out.phi.add(PHI_TAGS[key]||'Otros datos del paciente (grupo 0010)');
+    if(h.g===0x7FE0&&h.e===0x0010){if(h.len===0xFFFFFFFF)throw new Error('comprimido');out.pixel={o:h.vo,l:h.len};break;}
+    if(h.len===0xFFFFFFFF){off=skipUndef(h.vo,metaDone?explicit:true);continue;}
+    const t=KEEP[key];
+    if(t==='s')out.v[key]=str(h.vo,h.len);
+    else if(t==='u')out.v[key]=dv.getUint16(h.vo,true);
+    off=h.vo+h.len;
+  }
+  if(!out.pixel)throw new Error('sin imagen');
+  const rows=out.v['00280010'],cols=out.v['00280011'],bits=out.v['00280100']||16,sgn=out.v['00280103']||0;
+  if((out.v['00280002']||1)!==1)throw new Error('color');
+  const np=rows*cols,slope=parseFloat(out.v['00281053'])||1,icpt=parseFloat(out.v['00281052'])||0;
+  const px=new Float32Array(np),o=out.pixel.o;
+  for(let i=0;i<np;i++){const r=bits===8?dv.getUint8(o+i):bits===32?(sgn?dv.getInt32(o+i*4,true):dv.getUint32(o+i*4,true)):(sgn?dv.getInt16(o+i*2,true):dv.getUint16(o+i*2,true));px[i]=r*slope+icpt;}
+  const nums=k=>(out.v[k]||'').split('\\').map(Number);
+  return{kind:'dicom',series:out.v['0020000E']||'?',desc:out.v['0008103E']||'(sin descripción)',type:out.v['00080008']||'',
+    inst:+out.v['00200013']||0,ipp:nums('00200032'),iop:nums('00200037'),ps:nums('00280030'),thick:parseFloat(out.v['00180050'])||0,
+    rows,cols,px,phi:out.phi,priv:out.priv};
+}
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=a=>{const l=Math.hypot(...a)||1;return[a[0]/l,a[1]/l,a[2]/l];};
+function dicomVolume(sl){
+  const f=sl[0];
+  if(f.iop.length!==6||f.ipp.length!==3||f.ps.length!==2)throw new Error('sin geometría');
+  const R=norm(f.iop.slice(0,3)),Cd=norm(f.iop.slice(3,6)),N=norm(cross(R,Cd));
+  const ok=sl.filter(s=>s.rows===f.rows&&s.cols===f.cols).sort((a,b)=>dot3(a.ipp,N)-dot3(b.ipp,N));
+  const pos=ok.map(s=>dot3(s.ipp,N)),gaps=pos.slice(1).map((p,i)=>p-pos[i]).filter(g=>g>1e-3).sort((a,b)=>a-b);
+  const sz=gaps.length?gaps[gaps.length>>1]:(f.thick||1);
+  const uniq=[ok[0]];for(let i=1;i<ok.length;i++)if(pos[i]-dot3(uniq[uniq.length-1].ipp,N)>sz*0.5)uniq.push(ok[i]);
+  const nx=f.cols,ny=f.rows,nz=uniq.length,data=new Float32Array(nx*ny*nz);
+  uniq.forEach((s,k)=>data.set(s.px,k*nx*ny));
+  return{nx,ny,nz,data,O:uniq[0].ipp.slice(),R,Cd,N,sx:f.ps[1],sy:f.ps[0],sz,shift:[0,0,0]};
+}
+async function parseNifti(buf,name){
+  buf=await gunzipMaybe(buf);
+  const dv=new DataView(buf);let le=true;
+  if(dv.getInt32(0,true)!==348){if(dv.getInt32(0,false)===348)le=false;else throw new Error('no es NIfTI');}
+  const i16=o=>dv.getInt16(o,le),f32=o=>dv.getFloat32(o,le);
+  const nx=i16(42),ny=i16(44),nz=Math.max(1,i16(46)),dt=i16(70),pix=[0,1,2,3].map(i=>f32(76+i*4));
+  const vo=Math.max(352,Math.round(f32(108))),slope=f32(112)||1,icpt=f32(116)||0;
+  const phi=new Set();
+  let desc='';for(let i=0;i<80;i++){const c=dv.getUint8(148+i);if(c)desc+=String.fromCharCode(c);}
+  if(desc.trim())phi.add('Texto libre del encabezado (descrip)');
+  let aux='';for(let i=0;i<24;i++){const c=dv.getUint8(228+i);if(c)aux+=String.fromCharCode(c);}
+  if(aux.trim())phi.add('Archivo auxiliar (aux_file)');
+  let M;
+  if(i16(254)>0)M=[0,1,2].map(r=>[0,1,2,3].map(c=>f32(280+r*16+c*4)));
+  else if(i16(252)>0){
+    const b=f32(256),c=f32(260),d=f32(264),a=Math.sqrt(Math.max(0,1-b*b-c*c-d*d)),qf=pix[0]<0?-1:1;
+    const Rm=[[a*a+b*b-c*c-d*d,2*(b*c-a*d),2*(b*d+a*c)],[2*(b*c+a*d),a*a+c*c-b*b-d*d,2*(c*d-a*b)],[2*(b*d-a*c),2*(c*d+a*b),a*a+d*d-c*c-b*b]];
+    M=[0,1,2].map(r=>[Rm[r][0]*pix[1],Rm[r][1]*pix[2],Rm[r][2]*pix[3]*qf,f32(268+r*4)]);
+  }else M=[[pix[1],0,0,0],[0,pix[2],0,0],[0,0,pix[3],0]];
+  // NIfTI is RAS, the console works in DICOM LPS
+  M[0]=M[0].map(v=>-v);M[1]=M[1].map(v=>-v);
+  const col=j=>[M[0][j],M[1][j],M[2][j]];
+  const n=nx*ny*nz,data=new Float32Array(n);
+  const rd={2:[1,(o)=>dv.getUint8(o)],4:[2,o=>dv.getInt16(o,le)],8:[4,o=>dv.getInt32(o,le)],16:[4,o=>dv.getFloat32(o,le)],64:[8,o=>dv.getFloat64(o,le)],256:[1,o=>dv.getInt8(o)],512:[2,o=>dv.getUint16(o,le)],768:[4,o=>dv.getUint32(o,le)]}[dt];
+  if(!rd)throw new Error('tipo de dato no soportado');
+  for(let i=0;i<n;i++)data[i]=rd[1](vo+i*rd[0])*slope+icpt;
+  const sp=[0,1,2].map(j=>Math.hypot(...col(j)));
+  return{kind:'nifti',series:name,desc:name.replace(/\.nii(\.gz)?$/i,''),type:'',phi,priv:0,
+    vol:{nx,ny,nz,data,O:col(3),R:norm(col(0)),Cd:norm(col(1)),N:norm(col(2)),sx:sp[0],sy:sp[1],sz:sp[2],shift:[0,0,0]}};
+}
+let impSeries=[],impReport=null,impCount=0;
+function guessRole(t){t=t.toLowerCase();
+  if(/seg|aseg|synthseg|label|fast|pve|tissue/.test(t))return'labels';
+  if(/t1.?map|t1map|qt1|\bt1\b|r1/.test(t))return't1';
+  if(/t2.?map|t2map|qt2|\bt2\b|r2/.test(t))return't2';
+  if(/pd|m0|rho|proton/.test(t))return'pd';
+  return'none';}
+async function readImport(files){
+  files=[...files];if(!files.length)return;
+  const out=$('#impOut');const groups=new Map();const rep={files:files.length,ok:0,fail:0,compressed:0,phi:new Set(),priv:0};
+  for(let i=0;i<files.length;i++){
+    if(i%10===0){out.innerHTML=`<p>Leyendo ${i+1} de ${files.length} archivos…</p>`;await new Promise(r=>setTimeout(r));}
+    const f=files[i];
+    try{
+      const buf=await f.arrayBuffer();
+      if(/\.nii(\.gz)?$/i.test(f.name)){const s=await parseNifti(buf,f.name);s.phi.forEach(x=>rep.phi.add(x));groups.set('nii:'+f.name+i,{desc:s.desc,kind:'nifti',vol:s.vol,dims:`${s.vol.nx}×${s.vol.ny}×${s.vol.nz}`,role:guessRole(f.name)});rep.ok++;continue;}
+      const d=parseDicom(buf);d.phi.forEach(x=>rep.phi.add(x));rep.priv+=d.priv;rep.ok++;
+      if(!groups.has(d.series))groups.set(d.series,{desc:d.desc,kind:'dicom',slices:[],role:guessRole(d.desc+' '+d.type)});
+      const g=groups.get(d.series);d.phi=null;g.slices.push(d);
+    }catch(e){rep.fail++;if(String(e.message).includes('comprimido'))rep.compressed++;}
+  }
+  impSeries=[];
+  for(const g of groups.values()){
+    try{if(g.kind==='dicom'){g.vol=dicomVolume(g.slices);g.dims=`${g.vol.nx}×${g.vol.ny}×${g.vol.nz}`;g.slices=null;}impSeries.push(g);}catch(e){rep.fail++;}
+  }
+  impReport=rep;renderImport();
+}
+function renderImport(){
+  const rep=impReport,out=$('#impOut');
+  const phi=[...rep.phi];
+  let h=`<div class="anon"><b>Anonimización local:</b> se leyeron ${rep.ok} de ${rep.files} archivos${rep.fail?` (${rep.fail} omitidos${rep.compressed?`, ${rep.compressed} con compresión no soportada`:''})`:''}. `;
+  h+=phi.length?`Datos identificatorios encontrados y descartados, sin guardarse ni mostrarse:<ul>${phi.map(x=>`<li>${x}</li>`).join('')}${rep.priv?`<li>${rep.priv} tags privados del fabricante</li>`:''}</ul>`:`No se encontraron datos identificatorios en los encabezados.${rep.priv?` Se descartaron ${rep.priv} tags privados.`:''}`;
+  h+=`Solo se conservan la matriz de píxeles, la geometría (posición, orientación, espaciado) y la descripción de la serie.</div>`;
+  if(impSeries.length){
+    h+=`<table class="sertab"><thead><tr><th>Serie</th><th>Matriz</th><th>Uso</th></tr></thead><tbody>${impSeries.map((g,i)=>`<tr><td>${g.desc.replace(/[<&]/g,'')}</td><td>${g.dims}</td><td><select data-i="${i}" aria-label="Uso de la serie ${i+1}">${[['none','Ignorar'],['t1','Mapa T1'],['t2','Mapa T2'],['pd','Mapa PD'],['labels','Segmentación']].map(([v,t])=>`<option value="${v}" ${g.role===v?'selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>
+    <div class="row"><button class="btn go" type="button" id="impBuild">Crear fantoma</button><span class="lbl" id="impHint">Asigna T1 + T2 + PD, o una segmentación.</span></div>`;
+  }
+  out.innerHTML=h;
+}
+const FSLUT={2:5,41:5,7:5,46:5,16:5,28:5,60:5,77:5,85:5,192:5,251:5,252:5,253:5,254:5,255:5,3:4,42:4,8:4,47:4,10:4,49:4,11:4,50:4,12:4,51:4,13:4,52:4,17:4,53:4,18:4,54:4,26:4,58:4,4:3,5:3,43:3,44:3,14:3,15:3,24:3,31:3,63:3,72:3,30:10,62:10};
+function pct(a,q){const s=[];for(let i=0;i<a.length;i+=Math.max(1,a.length/20000|0))if(a[i]>0)s.push(a[i]);s.sort((x,y)=>x-y);return s.length?s[Math.floor(s.length*q)]:0;}
+function centerShift(V){
+  const c=[0,0,0];
+  for(const[k,r,cc]of[[0,0,0],[V.nz-1,V.ny-1,V.nx-1]])for(let a=0;a<3;a++)c[a]+=(V.O[a]+cc*V.sx*V.R[a]+r*V.sy*V.Cd[a]+k*V.sz*V.N[a])/2;
+  V.shift=[-c[0],-c[1],10-c[2]];
+}
+// remove the face: voxels in front of the brain and below the frontal lobe
+function deface(V,isBrain,zero){
+  let minY=1e9,maxZ=-1e9,minZ=1e9;const P=(i)=>{const c=i%V.nx,r=(i/V.nx|0)%V.ny,k=i/(V.nx*V.ny)|0;return[0,1,2].map(a=>V.O[a]+V.shift[a]+c*V.sx*V.R[a]+r*V.sy*V.Cd[a]+k*V.sz*V.N[a]);};
+  const n=V.nx*V.ny*V.nz,step=Math.max(1,n/400000|0);
+  for(let i=0;i<n;i+=step)if(isBrain(i)){const p=P(i);if(p[1]<minY)minY=p[1];if(p[2]>maxZ)maxZ=p[2];if(p[2]<minZ)minZ=p[2];}
+  if(minY>1e8)return 0;
+  let fz=1e9;for(let i=0;i<n;i+=step)if(isBrain(i)){const p=P(i);if(p[1]<minY+30&&p[2]<fz)fz=p[2];}
+  let cnt=0;for(let i=0;i<n;i++){const p=P(i);if(p[1]<minY+12&&p[2]<fz+8){zero(i);cnt++;}}
+  return cnt;
+}
+function buildImport(){
+  const pick=r=>impSeries.find(g=>g.role===r);
+  const t1=pick('t1'),t2=pick('t2'),pd=pick('pd'),lab=pick('labels'),dfc=$('#impDeface').checked;
+  let ph;
+  if(t1&&t2&&pd){
+    const V=t1.vol;
+    if([t2,pd].some(g=>g.vol.nx!==V.nx||g.vol.ny!==V.ny||g.vol.nz!==V.nz)){$('#impHint').textContent='Los tres mapas deben tener la misma matriz y número de cortes.';return;}
+    const A=V.data,B=t2.vol.data,Cc=pd.vol.data;
+    const k1=pct(A,0.5)<10?1000:1,k2=pct(B,0.5)<1?1000:1;
+    if(k1!==1)for(let i=0;i<A.length;i++)A[i]*=k1;
+    if(k2!==1)for(let i=0;i<B.length;i++)B[i]*=k2;
+    const pmax=pct(Cc,0.99)||1;for(let i=0;i<Cc.length;i++)Cc[i]=Math.max(0,Cc[i]/pmax);
+    centerShift(V);
+    if(dfc)deface(V,i=>A[i]>500&&A[i]<1700&&B[i]>50&&B[i]<130,i=>{Cc[i]=0;});
+    ph={type:'maps',vol:V,t1:A,t2:B,pd:Cc,desc:`mapas T1/T2/PD${k1!==1?' (T1 en s → ms)':''}`};
+  }else if(lab){
+    const V=lab.vol,src=V.data,vals=new Set();for(let i=0;i<src.length;i+=97)vals.add(Math.round(src[i]));
+    const fast=[...vals].every(v=>v>=0&&v<=3);
+    const d=new Uint8Array(src.length);
+    for(let i=0;i<src.length;i++){const v=Math.round(src[i]);d[i]=v<=0?0:fast?[0,3,4,5][v]:(FSLUT[v]!==undefined?FSLUT[v]:(v>=1000&&v<3000?4:4));}
+    V.data=d;centerShift(V);
+    if(dfc)deface(V,i=>d[i]===4||d[i]===5,i=>{d[i]=0;});
+    ph={type:'labels',vol:V,desc:fast?'segmentación FSL FAST':'segmentación FreeSurfer/SynthSeg'};
+  }else{$('#impHint').textContent='Falta asignar T1, T2 y PD, o una segmentación.';return;}
+  const id='imp'+(++impCount);
+  ph.name=`Importado ${impCount} · ${ph.desc}`;ph.imported=true;
+  PHANTOMS[id]=ph;addPhantomOption(id);
+  impSeries=[];$('#impOut').innerHTML=`<div class="anon"><b>Fantoma creado:</b> ${ph.name}. Ya está seleccionado; los datos de origen se liberaron de la memoria.</div>`;
+  $('#impState').textContent=`${impCount} importado${impCount>1?'s':''}`;
+  setPhantom(id);
+}
+$('#impFiles').addEventListener('change',e=>{readImport(e.target.files);e.target.value='';});
+$('#impDir').addEventListener('change',e=>{readImport(e.target.files);e.target.value='';});
+$('#impOut').addEventListener('change',e=>{const s=e.target.closest('select[data-i]');if(s)impSeries[+s.dataset.i].role=s.value;});
+$('#impOut').addEventListener('click',e=>{if(e.target.id==='impBuild')buildImport();});
+
+const BW={nx:181,ny:217,nz:181,ox:-89.5,oy:-110.5,oz:-64.26};
+async function gunzipMaybe(buf){
+  const u=new Uint8Array(buf,0,2);
+  if(u[0]!==0x1f||u[1]!==0x8b)return buf;
+  if(typeof DecompressionStream==='undefined')throw new Error('Este navegador no puede descomprimir .gz');
+  return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+}
+async function loadBrainWeb(){
+  const opt=$('#phantom option[value="bw"]');
+  try{
+    // gzip-compressed labels, base64 so any static host serves them as plain text
+    const r=await fetch('brainweb.gz.txt');if(!r.ok)throw new Error(r.status);
+    const bin=atob((await r.text()).trim()),raw=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)raw[i]=bin.charCodeAt(i);
+    const data=new Uint8Array(await gunzipMaybe(raw.buffer));
+    if(data.length!==BW.nx*BW.ny*BW.nz)throw new Error('tamaño');
+    PHANTOMS.bw={type:'labels',name:'BrainWeb · anatomía real',vol:{nx:BW.nx,ny:BW.ny,nz:BW.nz,data,O:[BW.ox,BW.oy,BW.oz],R:[1,0,0],Cd:[0,1,0],N:[0,0,1],sx:1,sy:1,sz:1,shift:[0,0,0]}};
+    opt.disabled=false;opt.textContent=PHANTOMS.bw.name;
+    if(state.phantom==='geo'&&!locDone()){state.phantom='bw';$('#phantom').value='bw';refreshPreview();}
+  }catch(e){opt.textContent='BrainWeb (no disponible)';setMsg('No se pudo cargar BrainWeb; se usa el fantoma geométrico. Si abriste index.html directo desde el disco, sírvelo con un servidor local o usa la versión web.','warn');}
+}
+renderLib();renderWL();fillForm(0);loadBrainWeb();
 setMsg('Ejemplo cargado en el registro. Presiona Exam para registrar al paciente.','');
 </script>
 

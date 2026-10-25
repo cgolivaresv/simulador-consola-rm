@@ -14,12 +14,14 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 - **Restricciones reales**: TE efectivo múltiplo del echo spacing en TSE, TE y TR mínimos según bandwidth/turbo factor/TI, concatenaciones cuando los cortes no caben en un TR, bloqueo por SAR.
 - **Línea de información** tipo consola: TA, PAT, voxel size, Rel. SNR (relativo al protocolo al abrirlo) y SAR estimado.
 - **Vista previa en vivo** del protocolo abierto y **segmento de serie** con las imágenes medidas: ventana/centro arrastrando, rueda para cortes, doble clic para ventana automática, overlays SP/SL/FoV/TR/TE/TA.
-- **Fantoma de cabeza procedural 3D** (cuero cabelludo, díploe, LCR, corteza con surcos, sustancia blanca, ventrículos, núcleos basales, fosa posterior, órbitas) con patologías: lesiones de sustancia blanca tipo EM e infarto agudo de ACM izquierda.
+- **Fantoma BrainWeb (anatomía real)** por defecto: cerebro segmentado a 1 mm con grasa, músculo, hueso, LCR, sustancias gris y blanca y vasos (vacío de flujo en spin echo, señal de entrada en gradient echo). Patologías precalculadas sobre esa anatomía: carga lesional de EM (periventriculares tipo dedos de Dawson, yuxtacorticales, infratentoriales) e infarto agudo de ACM izquierda con restricción en difusión.
+- **Datos propios, procesados solo en el navegador**: mapas cuantitativos T1/T2/PD (por ejemplo MAGiC/MDME) o segmentaciones (FreeSurfer, SynthSeg, FSL FAST) en DICOM sin comprimir o NIfTI. Al leerlos se descartan nombre, ID, fechas, institución, médicos, UIDs y tags privados, con un informe de lo encontrado; opción de *defacing* simple. Nada se sube a ningún servidor.
+- **Fantoma geométrico 3D** alternativo (cuero cabelludo, díploe, LCR, corteza con surcos, sustancia blanca, ventrículos, núcleos basales, fosa posterior, órbitas) con patologías: lesiones de sustancia blanca tipo EM e infarto agudo de ACM izquierda.
 - **Física**: ecuaciones de señal SE/TSE, IR (FLAIR/STIR), GRE (FLASH) y EPI de difusión (b, ADC); ruido Rician según SNR; aliasing (wrap-around) al reducir FoV phase; ghost N/2 en EPI; supresión grasa; 1.5 T y 3 T.
 
 ## Próximos pasos
 
-1. Fantoma más realista (por ejemplo, mapas de BrainWeb) y orientaciones sagital/coronal para los protocolos.
+1. Protocolos en orientación sagital y coronal, y más sujetos BrainWeb.
 2. Más regiones y protocolos (columna, rodilla, abdomen) y fantomas.
 3. Tarjeta Physio / Inline y bobinas.
 4. Modo instructor con casos y evaluación.
@@ -27,5 +29,14 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 ## Estructura
 
 ```
-index.html   Aplicación completa (HTML + CSS + JS, sin dependencias)
+index.html               Aplicación completa (HTML + CSS + JS, sin dependencias)
+brainweb.gz.txt          Fantoma BrainWeb a 1 mm (gzip + base64, ~730 KB)
+tools/prep_brainweb.py   Script que genera brainweb.gz.txt
 ```
+
+Para abrirlo localmente sirve la carpeta con un servidor estático (por ejemplo `python3 -m http.server`); abriendo `index.html` directo desde el disco el navegador bloquea la carga de BrainWeb y se usa el fantoma geométrico.
+
+## Créditos
+
+- Anatomía: **BrainWeb**, McConnell Brain Imaging Centre (MNI). Cocosco CA, Kollokian V, Kwan RK-S, Evans AC. *BrainWeb: Online Interface to a 3D MRI Simulated Brain Database*. NeuroImage 1997;5(4):S425. Collins DL et al. *Design and construction of a realistic digital brain phantom*. IEEE TMI 1998;17(3):463-468.
+- Volumen de etiquetas obtenido del fantoma 3D incluido en [KomaMRI.jl](https://github.com/JuliaHealth/KomaMRI.jl) (licencia MIT). Castillo-Passi C et al. *KomaMRI.jl: An open-source framework for general MRI simulations with GPU acceleration*. Magn Reson Med 2023.
