@@ -1,6 +1,8 @@
 # Simulador de Consola RM
 
-Simulador de entrenamiento de una consola de resonancia magnética, inspirado en el flujo de trabajo de syngo MR. Corre completo en el navegador, sin servidor ni instalación: abre `index.html`.
+Simulador de entrenamiento de una consola de resonancia magnética, inspirado en el flujo de trabajo de syngo MR. Corre completo en el navegador, sin servidor ni instalación.
+
+**Usarlo:** https://cgolivaresv.github.io/simulador-consola-rm/
 
 > Proyecto educativo independiente. No está afiliado a Siemens Healthineers ni a United Imaging, y no usa sus marcas ni su software.
 
@@ -17,7 +19,7 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 - **Fantoma BrainWeb (anatomía real)** por defecto: cerebro segmentado a 1 mm con grasa, músculo, hueso, LCR, sustancias gris y blanca y vasos (vacío de flujo en spin echo, señal de entrada en gradient echo). Patologías precalculadas sobre esa anatomía: carga lesional de EM (periventriculares tipo dedos de Dawson, yuxtacorticales, infratentoriales) e infarto agudo de ACM izquierda con restricción en difusión.
 - **Datos propios, procesados solo en el navegador**: mapas cuantitativos T1/T2/PD (por ejemplo MAGiC/MDME) o segmentaciones (FreeSurfer, SynthSeg, FSL FAST) en DICOM sin comprimir o NIfTI. Al leerlos se descartan nombre, ID, fechas, institución, médicos, UIDs y tags privados, con un informe de lo encontrado; opción de *defacing* simple. Nada se sube a ningún servidor.
 - **Fantoma geométrico 3D** alternativo (cuero cabelludo, díploe, LCR, corteza con surcos, sustancia blanca, ventrículos, núcleos basales, fosa posterior, órbitas) con patologías: lesiones de sustancia blanca tipo EM e infarto agudo de ACM izquierda.
-- **Física**: ecuaciones de señal SE/TSE, IR (FLAIR/STIR), GRE (FLASH) y EPI de difusión (b, ADC); ruido Rician según SNR; aliasing (wrap-around) al reducir FoV phase; ghost N/2 en EPI; supresión grasa; 1.5 T y 3 T.
+- **Física**: ecuaciones de señal SE/TSE, IR (FLAIR/STIR), GRE (FLASH) y EPI de difusión (b, ADC); ruido Rician según SNR; aliasing (wrap-around) al reducir FoV phase; ghost N/2 en EPI; supresión grasa; 1.5 T y 3 T. Las imágenes se calculan en un Web Worker, así la interfaz no se traba al planificar.
 
 ## Próximos pasos
 
@@ -26,15 +28,34 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 3. Tarjeta Physio / Inline y bobinas.
 4. Modo instructor con casos y evaluación.
 
+## Desarrollo
+
+Requiere Node 22.
+
+```bash
+npm install
+npm run dev        # servidor local con recarga en vivo: http://localhost:5173
+npm test           # pruebas de física, geometría, BrainWeb e importación
+npm run build      # verifica tipos y genera dist/
+```
+
+Cada push a `main` corre las pruebas, compila y publica `dist/` en la rama `gh-pages` (GitHub Actions, `.github/workflows/publicar.yml`). Si una prueba falla, no se publica.
+
 ## Estructura
 
 ```
-index.html               Aplicación completa (HTML + CSS + JS, sin dependencias)
-brainweb.gz.txt          Fantoma BrainWeb a 1 mm (gzip + base64, ~730 KB)
-tools/prep_brainweb.py   Script que genera brainweb.gz.txt
+index.html                 Marcado de la consola
+src/main.ts                Punto de entrada: conecta controles y carga BrainWeb
+src/core/                  Tipos (coordenadas LPS, protocolo, volumen) y utilidades
+src/physics/               Tabla de tejidos, timing/SNR/SAR del protocolo, ecuaciones de señal
+src/phantom/               Fantoma geométrico, BrainWeb y muestreo de volúmenes
+src/imaging/               Geometría de cortes, reconstrucción y Web Worker
+src/importer/              Lectura DICOM (dicom-parser) y NIfTI, anonimización, armado de fantomas
+src/ui/                    Tarjeta de parámetros, cola, visor y planificación, medición, paciente
+public/brainweb.gz.txt     Fantoma BrainWeb a 1 mm (gzip + base64, ~730 KB)
+test/                      Pruebas (Vitest); test/fixtures tiene DICOM falsos con datos inventados
+tools/prep_brainweb.py     Script que genera brainweb.gz.txt
 ```
-
-Para abrirlo localmente sirve la carpeta con un servidor estático (por ejemplo `python3 -m http.server`); abriendo `index.html` directo desde el disco el navegador bloquea la carga de BrainWeb y se usa el fantoma geométrico.
 
 ## Créditos
 
