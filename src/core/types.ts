@@ -93,7 +93,14 @@ export interface Volume<T extends ArrayLike<number> = ArrayLike<number>> {
   shift: Vec3;
 }
 
+/** Image weighting of a stored series or of a protocol. */
+export type Weighting = 'T1' | 'T2' | 'PD' | 'FLAIR' | 'STIR' | 'T2*' | 'DWI' | 'ADC' | 'otro';
+
+/** A stored series used as-is: its voxels, its weighting, and a factor that brings it to the simulator's signal scale. */
+export interface ReplaySource { vol: Volume<Int16Array | Uint16Array | Float32Array>; weighting: Weighting; scale: number; desc: string; b?: number }
+
 export type PhantomData =
   | { type: 'geo' }
   | { type: 'labels'; vol: Volume<Uint8Array> }
-  | { type: 'maps'; vol: Volume<Float32Array>; t1: Float32Array; t2: Float32Array; pd: Float32Array };
+  | { type: 'maps'; vol: Volume<Float32Array>; t1: Float32Array; t2: Float32Array; pd: Float32Array }
+  | { type: 'replay'; sources: ReplaySource[] };

@@ -9,7 +9,7 @@ import { $, setMsg, setScanner } from './dom';
 import { F, coerce, getP, parseNum, setP } from './fields';
 import { renderQueue } from './queue';
 import { startSound, stopSound } from './sound';
-import { envParams, locDone, phantoms, sel, state } from './state';
+import { envParams, locDone, phantoms, replaySource, sel, state } from './state';
 import { drawLocs, refreshPreview, segA, showSeries, thumbOf } from './viewer';
 
 export function select(id: number): void {
@@ -73,7 +73,8 @@ export function go(): void {
   p.prog = 0;
   state.running = p;
   setScanner(true, 'Measuring');
-  setMsg(`Midiendo ${p.name} — TA ${fmtTA(d.TA)} (simulación acelerada).`);
+  const src = replaySource(p);
+  setMsg(`Midiendo ${p.name} — TA ${fmtTA(d.TA)} (simulación acelerada).${src ? ` Anatomía real: ${src.desc}${src.exact ? '' : ` (el estudio no tiene ${src.want}; se usa ${src.got})`}.` : ''}`, src && !src.exact ? 'warn' : '');
   if (state.sound) startSound(p);
   renderQueue();
   renderCard();

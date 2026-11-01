@@ -1,5 +1,7 @@
 // 3D task: multiplanar reformatting of stored volumetric acquisitions.
-import type { PhantomData, Vec3 } from '../core/types';
+import type { PhantomData, Vec3, Weighting } from '../core/types';
+import { buildReplay, buildSynthetic, referenceSeries, type StudySeries } from '../phantom/study';
+import { guessWeighting } from '../physics/weighting';
 import { add3, clamp, cross, dot3, rng } from '../core/util';
 import { autoWindow, dirLabel, IDENTITY, planeName, rangeCenters, reformat, rotate, viewPlane, volumeCenter, volumeDiagonal, type Mat3, type Plane, type SlabMode, type ViewId } from '../mpr/mpr';
 import { signals } from '../physics/signal';
@@ -380,7 +382,87 @@ function selectVolume(i: number) {
   document.querySelectorAll<HTMLElement>('#view3D .mempty').forEach((el) => (el.hidden = !!V));
 }
 
+/* ---------- use the loaded series as a console patient ---------- */
+const WEIGHTINGS: Weighting[] = ['T1', 'T2', 'PD', 'FLAIR', 'STIR', 'T2*', 'DWI', 'ADC', 'otro'];
+const use = new Map<string, { on: boolean; w: Weighting }>();
+let studies = 0;
+
+export interface StudyResult { name: string; mode: 'replay' | 'synthetic'; phantom: PhantomData; replay?: { weighting: Weighting; desc: string; b?: number }[]; summary: string }
+let onStudy: ((r: StudyResult) => void) | null = null;
+export function onUseStudy(cb: (r: StudyResult) => void): void { onStudy = cb; }
+
+function useState(v: MprVolume) {
+  let u = use.get(v.id);
+  if (!u) { u = { on: v.volumetric || v.info.b !== undefined || /adc/i.test(v.info.desc), w: v.id === 'demo' ? 'T1' : guessWeighting(v.info) }; use.set(v.id, u); }
+  return u;
+}
+const mode = () => (($('#useSynth') as HTMLInputElement).checked ? 'synthetic' : 'replay');
+const chosen = (): StudySeries[] => M.vols.filter((v) => useState(v).on).map((v) => ({ vol: v, weighting: useState(v).w, desc: v.info.desc, volumetric: v.volumetric, b: v.info.b }));
+
+function renderUse() {
+  const has = M.vols.length > 0;
+  $('#useIntro').textContent = has ? 'Marca las series del estudio y revisa la potenciación detectada.' : 'Carga series para convertirlas en un paciente de la consola.';
+  $('#useTable').hidden = !has;
+  $('#useModes').hidden = !has;
+  $('#useBody').innerHTML = M.vols.map((v, i) => {
+    const u = useState(v);
+    return `<tr><td><input type="checkbox" id="use-on-${i}" data-i="${i}" ${u.on ? 'checked' : ''} aria-label="Usar ${esc(v.info.desc)}"></td><td><label for="use-on-${i}">${esc(v.info.desc)}</label></td><td><select id="use-w-${i}" data-i="${i}" aria-label="Potenciación de ${esc(v.info.desc)}">${WEIGHTINGS.map((w) => `<option ${w === u.w ? 'selected' : ''}>${w}</option>`).join('')}</select></td></tr>`;
+  }).join('');
+  useHint();
+}
+
+function useHint() {
+  const s = chosen(), hint = $('#useHint'), btn = $('#useCreate') as HTMLButtonElement;
+  let txt = '', ok = s.length > 0, err = false;
+  if (!s.length) txt = M.vols.length ? 'Marca al menos una serie.' : '';
+  else if (mode() === 'replay') {
+    const ws = [...new Set(s.map((x) => x.weighting))].join(', ');
+    txt = `${s.length} serie${s.length > 1 ? 's' : ''} (${ws}). Cada protocolo usará la de potenciación más parecida.`;
+    if (!s.some((x) => x.volumetric)) txt += ' Ninguna es volumétrica: los localizers y los planos oblicuos se verán escalonados.';
+  } else {
+    const ref = referenceSeries(s);
+    const has = (w: Weighting) => s.some((x) => x.weighting === w);
+    if (!ref || ref.weighting !== 'T1' || !ref.volumetric) { txt = 'Falta una serie T1 volumétrica.'; ok = false; err = true; }
+    else txt = `T1 ✓ · T2 ${has('T2') || has('STIR') ? '✓' : '— (la grasa se confundirá con sustancia blanca)'} · FLAIR ${has('FLAIR') ? '✓' : '—'} · ADC/DWI ${has('ADC') || has('DWI') ? '✓' : '—'}`;
+  }
+  hint.textContent = txt;
+  hint.classList.toggle('err', err);
+  btn.disabled = !ok;
+}
+
+async function createStudy() {
+  const s = chosen(), m = mode(), btn = $('#useCreate') as HTMLButtonElement, hint = $('#useHint');
+  if (!s.length || !onStudy) return;
+  btn.disabled = true;
+  try {
+    studies++;
+    let res: StudyResult;
+    if (m === 'replay') {
+      const phantom = buildReplay(s);
+      const replay = phantom.type === 'replay' ? phantom.sources.map((x) => ({ weighting: x.weighting, desc: x.desc, b: x.b })) : [];
+      res = { name: `Estudio ${studies} · anatomía real`, mode: m, phantom, replay, summary: `${replay.length} series: ${replay.map((x) => `${x.desc} (${x.weighting})`).join(', ')}` };
+    } else {
+      const { phantom, stats } = await buildSynthetic(s, (msg) => (hint.textContent = msg));
+      const pct = (k: string) => `${k} ${Math.round((stats.frac[k] ?? 0) * 100)}%`;
+      res = {
+        name: `Estudio ${studies} · contraste sintético`, mode: m, phantom,
+        summary: `Canales ${stats.channels.join(' + ')}, vóxel ${stats.mm.toFixed(1)} mm: ${['SB', 'SG', 'LCR', 'grasa'].map(pct).join(', ')}${stats.lesionMl ? `, lesiones ${stats.lesionMl.toFixed(1)} ml` : ''}${stats.infarctMl ? `, restricción ${stats.infarctMl.toFixed(1)} ml` : ''}.`,
+      };
+    }
+    onStudy(res);
+    $('#useState').textContent = `${studies} creado${studies > 1 ? 's' : ''}`;
+    hint.textContent = `${res.name} creado. ${res.summary}`;
+  } catch (e) {
+    studies--;
+    hint.textContent = (e as Error).message;
+    hint.classList.add('err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderList() {
+  renderUse();
   $('#mprList').innerHTML = M.vols.map((v, i) => `<li class="${v === M.vol ? 'sel' : ''}" data-i="${i}" tabindex="0">
       <span class="vn">${esc(v.info.desc)}</span>
       <span class="vm">${v.nx}×${v.ny}×${v.nz} · ${v.sx.toFixed(2)}×${v.sy.toFixed(2)}×${v.sz.toFixed(2)} mm · ${esc(v.info.ts)}</span>
@@ -504,6 +586,15 @@ export function initMpr(): void {
   ['#rgBase', '#rgCount', '#rgThick', '#rgSpacing', '#rgShow'].forEach((s) => $(s).addEventListener('change', applyRange));
   applyRange();
   $('#rgCreate').addEventListener('click', createRange);
+  $('#useBody').addEventListener('change', (e) => {
+    const el = e.target as HTMLInputElement | HTMLSelectElement, v = M.vols[Number(el.dataset.i)];
+    if (!v) return;
+    const u = useState(v);
+    if (el instanceof HTMLInputElement) u.on = el.checked; else u.w = el.value as Weighting;
+    useHint();
+  });
+  $('#useModes').addEventListener('change', useHint);
+  $('#useCreate').addEventListener('click', () => void createStudy());
   $('#mprResults').addEventListener('click', (e) => {
     const li = (e.target as HTMLElement).closest<HTMLElement>('li');
     if (!li) return;

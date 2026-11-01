@@ -1,14 +1,14 @@
 // Patient task: example worklist and registration. All names in the worklist are fictitious.
 import type { Pathology } from '../core/types';
 import { DEFAULT_EXAM, LIB, newProt } from '../physics/protocol';
-import { resetScanner, select } from './actions';
+import { resetScanner, select, setPhantom } from './actions';
 import { age } from './age';
 import { $, esc, setMsg } from './dom';
-import { state } from './state';
+import { phantoms, state } from './state';
 import { allSegs, clearSeries, drawSeg } from './viewer';
 import { showMpr } from './mpr';
 
-interface WlEntry { last: string; first: string; id: string; sex: string; dob: string; h: number; w: number; ref: string; proc: string; t: string; path: Pathology }
+export interface WlEntry { last: string; first: string; id: string; sex: string; dob: string; h: number; w: number; ref: string; proc: string; t: string; path: Pathology; phantom?: string }
 
 const WL: WlEntry[] = [
   { last: 'GONZÁLEZ', first: 'MARÍA', id: '20451', sex: 'F', dob: '1978-03-12', h: 1.62, w: 64, ref: 'Dra. Soto', proc: 'RM cerebro sin contraste', t: '09:00', path: 'normal' },
@@ -32,7 +32,16 @@ export function fillForm(i: number): void {
   input('#rHeight').value = w.h.toFixed(2); input('#rWeight').value = String(w.w); input('#rRef').value = w.ref; input('#rProc').value = w.proc;
   state.path = w.path;
   ($('#path') as HTMLSelectElement).value = w.path;
+  // an imported study brings its own anatomy; the example patients go back to BrainWeb
+  const target = w.phantom ?? (phantoms.get(state.phantom)?.imported ? (phantoms.get('bw')?.ready ? 'bw' : 'geo') : null);
+  if (target && target !== state.phantom) setPhantom(target);
   renderWL();
+}
+
+/** Add a patient for an imported study and select it. Identifiers are placeholders: the study was anonymized on load. */
+export function addWorklistEntry(e: WlEntry): void {
+  WL.push(e);
+  fillForm(WL.length - 1);
 }
 
 export function register(): void {

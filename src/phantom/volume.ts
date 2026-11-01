@@ -1,5 +1,6 @@
 import type { PhantomData, Scan, Volume } from '../core/types';
 import { signals, tissueSig } from '../physics/signal';
+import { pickSource } from '../physics/weighting';
 import { T } from '../physics/tissues';
 import { HALF, labelPoint } from './geometric';
 
@@ -49,6 +50,17 @@ export function makeSampler(pp: Scan, ph: PhantomData | undefined): Sampler {
   if (!ph || ph.type === 'geo') {
     const sig = signals(pp), path = pp.path;
     return (x, y, z) => (x <= -HALF || x >= HALF || y <= -HALF || y >= HALF ? 0 : sig[labelPoint(x, y, z, path)]);
+  }
+  if (ph.type === 'replay') {
+    // real anatomy: the stored series closest to the protocol's weighting, at the simulator's signal scale
+    const src = ph.sources[pickSource(pp, ph.sources).index];
+    const it = makeInterp(src.vol), I = it.idx, Wt = it.w, d = src.vol.data, k = src.scale;
+    return (x, y, z) => {
+      if (!it(x, y, z)) return 0;
+      let s = 0;
+      for (let q = 0; q < 8; q++) s += d[I[q]] * Wt[q];
+      return s > 0 ? s * k : 0;
+    };
   }
   const it = makeInterp(ph.vol), I = it.idx, Wt = it.w;
   if (ph.type === 'labels') {

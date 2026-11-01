@@ -9,12 +9,12 @@ import { addPhantomOption, commit, go, refreshAll, select, setPhantom, step, sto
 import { renderCard } from './ui/card';
 import { $, setMsg } from './ui/dom';
 import { stepOf } from './ui/fields';
-import { fillForm, register, renderWL, showView } from './ui/patient';
+import { addWorklistEntry, fillForm, register, renderWL, showView } from './ui/patient';
 import { renderLib, renderQueue } from './ui/queue';
 import { startSound, stopSound } from './ui/sound';
 import { lastGeoSeries, locDone, phantoms, sel, state } from './ui/state';
 import { drawLocs, initViewer, refreshPreview } from './ui/viewer';
-import { initMpr, setDemoSource } from './ui/mpr';
+import { initMpr, onUseStudy, setDemoSource } from './ui/mpr';
 
 const on = <K extends keyof HTMLElementEventMap>(sel: string, ev: K, fn: (e: HTMLElementEventMap[K]) => void) => $(sel).addEventListener(ev, fn);
 const target = (e: Event) => e.target as HTMLElement;
@@ -108,6 +108,24 @@ initImportPanel((id, name, phantom) => {
   phantoms.set(id, { name, imported: true, ready: true });
   addPhantomOption(id);
   setPhantom(id);
+});
+
+/* an imported study becomes a worklist patient with its own phantom */
+let studyN = 0;
+onUseStudy((r) => {
+  studyN++;
+  const id = `study${studyN}`;
+  registerPhantom(id, r.phantom);
+  phantoms.set(id, { name: r.name, imported: true, ready: true, replay: r.replay });
+  addPhantomOption(id);
+  const now = new Date();
+  addWorklistEntry({
+    last: 'ESTUDIO', first: `IMPORTADO ${studyN}`, id: `ANON-${studyN}`, sex: 'O', dob: '1980-01-01', h: 1.7, w: 70, ref: '—',
+    proc: r.mode === 'replay' ? 'Estudio importado · anatomía real' : 'Estudio importado · contraste sintético',
+    t: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, path: 'normal', phantom: id,
+  });
+  showView('patient');
+  setMsg(`${r.name} listo en la worklist. Nombre, fecha de nacimiento, peso y estatura son de referencia (el estudio se anonimizó): corrige peso y estatura si los conoces, porque definen el SAR. Luego presiona Exam.`, 'ok');
 });
 
 /* BrainWeb ships next to the page; until it arrives the geometric phantom is used */

@@ -21,6 +21,8 @@ export interface AcqInfo {
   B0?: number;
   maker?: string;
   seq?: string;
+  /** diffusion b-value, s/mm² */
+  b?: number;
   ts: string;
 }
 
@@ -135,10 +137,12 @@ async function readDicomFile(buf: ArrayBuffer, fileOrder: number, rep: LoadRepor
     const echo = per ? item(per, 'x00189114')?.double('x00189082') ?? '' : ds.string('x00180086') ?? '';
     const temporal = per ? item(per, 'x00209111')?.uint32('x00209128') ?? '' : ds.string('x00200100') ?? '';
     const stack = per ? item(per, 'x00209111')?.string('x00209056') ?? '' : '';
-    const key = [series, iop.map((v) => v.toFixed(3)).join(','), echo, temporal, stack, rows, cols].join('|');
+    // b-value: standard attribute, enhanced per-frame macro, or the vendor field Siemens classic DWI uses
+    const bval = (per ? item(per, 'x00189117')?.double('x00189087') : undefined) ?? ds.double('x00189087') ?? ds.intString('x0019100c');
+    const key = [series, iop.map((v) => v.toFixed(3)).join(','), echo, temporal, stack, rows, cols, bval ?? ''].join('|');
     const bytes = frameBytes(ds, el, i, n, frameLen, native);
     const px = native ? viewSamples(bytes, pinfo) : await decodeFrame(ts, bytes, pinfo);
-    frames.push({ key, ipp, iop, ps, thick, rows, cols, px, slope, icpt, order: fileOrder * 10000 + i, info });
+    frames.push({ key, ipp, iop, ps, thick, rows, cols, px, slope, icpt, order: fileOrder * 10000 + i, info: bval !== undefined ? { ...info, b: bval, desc: `${info.desc} b${bval}` } : info });
   }
   return frames;
 }

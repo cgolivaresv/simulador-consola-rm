@@ -9,7 +9,7 @@ import { refreshCardValues, renderCard } from './card';
 import { $, setMsg } from './dom';
 import { F, fmtVal, type NumField } from './fields';
 import { renderQueue } from './queue';
-import { locDone, previewScan, sel, state } from './state';
+import { locDone, previewScan, replaySource, sel, state } from './state';
 
 type Kind = 'loc' | 'preview' | 'series';
 interface Rect { ox: number; oy: number; sc: number; dpr: number }
@@ -109,9 +109,10 @@ async function updateOnce(seg: Seg): Promise<void> {
   const fovP = (pp.fovRead * pp.fovPh) / 100;
   const fovStr = pp.phaseDir === 'RL' ? `${Math.round(fovP)}*${pp.fovRead}` : `${pp.fovRead}*${Math.round(fovP)}`;
   const z = g.C[2];
+  const src = replaySource(pp, pp.phantom);
   seg.ov[0].textContent = `${overlayPatient()}\nHead^Brain`;
   seg.ov[1].textContent = `Resonador ${pp.B0} T\n${seg.kind === 'series' ? 'Se: ' + p.series : 'Protocolo abierto'}\nIm: ${seg.slice + 1}/${nS}\n${new Date().toLocaleDateString('es-CL')}`;
-  seg.ov[2].textContent = `SP ${z >= 0 ? 'H' : 'F'}${Math.abs(z).toFixed(1)}\nSL ${pp.thick.toFixed(1)}\nFoV ${fovStr}\n${pp.loc ? 'Tra' : orientTxt(pp)}>${pp.phaseDir === 'RL' ? 'R>>L' : 'A>>P'}\nTR ${f1(pp.TR)}${pp.prep === 'ir' ? '  TI ' + pp.TI : ''}\nTE ${f1(pp.TE)}${pp.seq === 'gre' ? '  FA ' + pp.FA : ''}${pp.seq === 'epi' ? '  b ' + pp.b : ''}\nTA ${fmtTA(d.TA)}  BW ${pp.bw}\n${pp.name}`;
+  seg.ov[2].textContent = `${src ? `Fuente: ${src.desc} (${src.got})\n` : ''}SP ${z >= 0 ? 'H' : 'F'}${Math.abs(z).toFixed(1)}\nSL ${pp.thick.toFixed(1)}\nFoV ${fovStr}\n${pp.loc ? 'Tra' : orientTxt(pp)}>${pp.phaseDir === 'RL' ? 'R>>L' : 'A>>P'}\nTR ${f1(pp.TR)}${pp.prep === 'ir' ? '  TI ' + pp.TI : ''}\nTE ${f1(pp.TE)}${pp.seq === 'gre' ? '  FA ' + pp.FA : ''}${pp.seq === 'epi' ? '  b ' + pp.b : ''}\nTA ${fmtTA(d.TA)}  BW ${pp.bw}\n${pp.name}`;
   seg.ov[3].textContent = `W ${seg.wl.w}\nC ${seg.wl.c}`;
   drawSeg(seg);
 }

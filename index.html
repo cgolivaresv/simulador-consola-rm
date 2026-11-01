@@ -143,6 +143,20 @@
         </div>
       </section>
       <section class="panel">
+        <div class="ph"><h2>Usar en el examen</h2><span class="path" id="useState"></span></div>
+        <div class="muse">
+          <p id="useIntro">Carga series para convertirlas en un paciente de la consola.</p>
+          <table class="sertab" id="useTable" hidden><thead><tr><th><span class="sr">Usar</span></th><th>Serie</th><th>Potenciación</th></tr></thead><tbody id="useBody"></tbody></table>
+          <fieldset class="modes" id="useModes" hidden>
+            <legend class="lbl">Modo</legend>
+            <label class="chk" for="useReplay"><input type="radio" name="useMode" id="useReplay" value="replay" checked> <span><b>Anatomía real.</b> Cada protocolo muestra la serie con su potenciación; conserva la patología del paciente.</span></label>
+            <label class="chk" for="useSynth"><input type="radio" name="useMode" id="useSynth" value="synthetic"> <span><b>Contraste sintético.</b> Clasifica tejidos y TR, TE y TI cambian el contraste. Requiere T1 3D; mejor con T2 y FLAIR.</span></label>
+          </fieldset>
+          <div class="row"><button class="btn go" id="useCreate" type="button" disabled>Crear paciente</button></div>
+          <p class="hint" id="useHint"></p>
+        </div>
+      </section>
+      <section class="panel">
         <div class="ph"><h2>Herramientas</h2></div>
         <div class="mtools" id="mprTools">
           <div class="tgroup" role="group" aria-label="Herramienta">

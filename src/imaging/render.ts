@@ -1,5 +1,5 @@
 import type { Img, PhantomData, PlaneGeom, Scan } from '../core/types';
-import { clamp, rng } from '../core/util';
+import { clamp, cross, rng } from '../core/util';
 import { derive } from '../physics/protocol';
 import { signals } from '../physics/signal';
 import { G, HALF, RES, getLabels } from '../phantom/geometric';
@@ -19,10 +19,18 @@ export function computePlane(pp: Scan, g: PlaneGeom, seed: number, phantom: Phan
   const Lf = fast ? getLabels(C[2], pp.path) : null;
   const sig = fast ? signals(pp) : null;
   const S = fast ? null : makeSampler(pp, phantom);
+  // through-plane: average across the slice thickness, so thick slices show real partial volume
+  const nrm = g.n ?? cross(u, v);
+  const nsz = fast ? 1 : clamp(Math.round(pp.thick / 1.25), 1, 5);
+  const offs = Array.from({ length: nsz }, (_, s) => ((s + 0.5) / nsz - 0.5) * pp.thick);
   const samp = (a: number, b: number): number => {
     const x = C[0] + a * u[0] + b * v[0], y = C[1] + a * u[1] + b * v[1];
     if (Lf && sig) return x <= -HALF || x >= HALF || y <= -HALF || y >= HALF ? 0 : sig[Lf[(((y + HALF) / RES) | 0) * G + (((x + HALF) / RES) | 0)]];
-    return S!(x, y, C[2] + a * u[2] + b * v[2]);
+    const z = C[2] + a * u[2] + b * v[2];
+    if (nsz === 1) return S!(x, y, z);
+    let acc = 0;
+    for (const t of offs) acc += S!(x + t * nrm[0], y + t * nrm[1], z + t * nrm[2]);
+    return acc / nsz;
   };
   const out = new Float32Array(W * H);
   for (let j = 0; j < H; j++) {

@@ -1,4 +1,5 @@
-import type { Env, Pathology, Scan } from '../core/types';
+import type { Env, Pathology, ProtocolParams, Scan, Weighting } from '../core/types';
+import { pickSource, type Pick } from '../physics/weighting';
 import { paramsOf, type Protocol } from '../physics/protocol';
 
 export interface Patient {
@@ -13,7 +14,13 @@ export interface Patient {
   proc: string;
 }
 
-export interface PhantomInfo { name: string; imported: boolean; ready: boolean }
+export interface PhantomInfo {
+  name: string;
+  imported: boolean;
+  ready: boolean;
+  /** for imported studies played back as-is: the series available, in the order the user listed them */
+  replay?: { weighting: Weighting; desc: string; b?: number }[];
+}
 
 export const state = {
   B0: 1.5,
@@ -44,3 +51,11 @@ export function envParams(): Env {
 
 /** The protocol as it would be measured right now. */
 export const previewScan = (p: Protocol): Scan => ({ ...paramsOf(p), ...envParams() });
+
+/** For a played-back study: which stored series a protocol shows, and whether it is the right weighting. */
+export function replaySource(p: ProtocolParams, phantomId = state.phantom): (Pick & { desc: string }) | null {
+  const r = phantoms.get(phantomId)?.replay;
+  if (!r || !r.length) return null;
+  const pk = pickSource(p, r);
+  return { ...pk, desc: r[pk.index].desc };
+}
