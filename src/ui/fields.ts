@@ -1,6 +1,7 @@
 // Parameter definitions for the protocol card: label, unit, limits, step and visibility.
 import type { ProtocolParams } from '../core/types';
 import { derive, type Derived } from '../physics/protocol';
+import { orientText } from '../imaging/geometry';
 
 interface Base { l: string; show?: (p: ProtocolParams) => boolean }
 export interface NumField extends Base { kind: 'num'; u?: string; min: number; max: number; st: number | ((p: ProtocolParams) => number); dec: number }
@@ -17,7 +18,9 @@ export const F: Record<string, Field> = {
   offX: num('Position R-L', -60, 60, 0.5, 1, 'mm'),
   offY: num('Position A-P', -80, 80, 0.5, 1, 'mm'),
   tilt: num('Angulation T>C', -45, 45, 0.5, 1, 'deg'),
-  orient: { kind: 'ro', l: 'Orientation', ro: (p) => (p.tilt ? `T > C ${p.tilt > 0 ? '' : '-'}${Math.abs(p.tilt).toFixed(1)}` : 'Transversal') },
+  tiltS: num('Angulation T>S', -45, 45, 0.5, 1, 'deg'),
+  rot: num('Inplane rotation', -180, 180, 0.5, 1, 'deg'),
+  orient: { kind: 'ro', l: 'Orientation', ro: (p) => orientText(p) },
   phaseDir: { kind: 'sel', l: 'Phase enc. dir.', opts: [['RL', 'R >> L'], ['AP', 'A >> P']] },
   fovRead: num('FoV read', 100, 300, 5, 0, 'mm'),
   fovPh: num('FoV phase', 50, 100, 3.125, 1, '%'),
@@ -47,11 +50,11 @@ export const F: Record<string, Field> = {
 };
 
 /** Fields that do not apply to the 3-plane localizer. */
-export const GEO = ['slices', 'dist', 'pos', 'offX', 'offY', 'tilt', 'orient'];
+export const GEO = ['slices', 'dist', 'pos', 'offX', 'offY', 'tilt', 'tiltS', 'rot', 'orient'];
 
 export const TABS: Record<string, string[]> = {
   Routine: ['slices', 'dist', 'pos', 'phaseDir', 'fovRead', 'fovPh', 'thick', 'TR', 'TE', 'nex', 'concat'],
-  Geometry: ['slices', 'dist', 'thick', 'pos', 'offX', 'offY', 'tilt', 'orient', 'phaseDir'],
+  Geometry: ['slices', 'dist', 'thick', 'pos', 'offX', 'offY', 'tilt', 'tiltS', 'rot', 'orient', 'phaseDir'],
   Contrast: ['TR', 'TE', 'prep', 'TI', 'FA', 'refFA', 'fat', 'b'],
   Resolution: ['base', 'phRes', 'os', 'pat', 'interp', 'voxel'],
   Sequence: ['bw', 'ETL', 'ES', 'trains', 'epiF', 'rf'],

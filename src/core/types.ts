@@ -25,7 +25,12 @@ export interface ProtocolParams {
   pos: number;
   offX: number;
   offY: number;
+  /** angulation toward coronal (T>C), degrees */
   tilt: number;
+  /** angulation toward sagittal (T>S), degrees */
+  tiltS: number;
+  /** in-plane rotation of the field of view, degrees */
+  rot: number;
   fovRead: number;
   fovPh: number;
   base: number;

@@ -67,7 +67,7 @@ on('#rep', 'click', () => {
 on('#cpy', 'click', () => {
   const p = sel(), s = p && lastGeoSeries(p);
   if (!p || !s?.snap || p.state !== 'pending') return;
-  p.pos = s.snap.pos; p.offX = s.snap.offX; p.offY = s.snap.offY; p.tilt = s.snap.tilt;
+  p.pos = s.snap.pos; p.offX = s.snap.offX; p.offY = s.snap.offY; p.tilt = s.snap.tilt; p.tiltS = s.snap.tiltS ?? 0; p.rot = s.snap.rot ?? 0;
   setMsg(`Posición copiada de ${s.name} (serie ${s.series}).`, 'ok');
   renderCard(); refreshPreview(); drawLocs();
 });

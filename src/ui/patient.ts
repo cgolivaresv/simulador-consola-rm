@@ -87,7 +87,7 @@ export function register(): void {
 export type View = 'patient' | 'exam' | '3d';
 const HELP: Record<View, string> = {
   patient: 'Elige un paciente de la worklist o completa el registro y presiona Exam.',
-  exam: 'Localizers: arrastra el slice group para moverlo, el punto para angular · Imágenes: arrastra ←→ ventana, ↑↓ centro · rueda o ‹ › corte · doble clic ventana automática',
+  exam: 'Localizers: arrastra el slice group para moverlo; los puntos angulan (Sag T>C, Cor T>S) o rotan el FoV (Tra) · Imágenes: arrastra ←→ ventana, ↑↓ centro · rueda o ‹ › corte · doble clic ventana automática',
   '3d': 'Cruz: arrastra el centro o una línea para mover planos, los puntos para rotar · rueda: avanzar · Ctrl+rueda: zoom · botón derecho: ventana · doble clic: restablecer vista',
 };
 

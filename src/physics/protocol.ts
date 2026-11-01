@@ -110,7 +110,7 @@ export function normalize(p: ProtocolParams): string[] {
 
 export const BASE: Omit<ProtocolParams, 'name' | 'seq' | 'TR' | 'TE'> = {
   prep: 'none', TI: 2500, FA: 90, refFA: 150, ETL: 1, bw: 200, nex: 1, slices: 20, thick: 5, dist: 30, pos: 12,
-  offX: 0, offY: 0, tilt: 0, fovRead: 230, fovPh: 87.5, base: 256, phRes: 75, os: 0, phaseDir: 'RL', pat: 1,
+  offX: 0, offY: 0, tilt: 0, tiltS: 0, rot: 0, fovRead: 230, fovPh: 87.5, base: 256, phRes: 75, os: 0, phaseDir: 'RL', pat: 1,
   fat: 'none', b: 0, rf: 'normal', interp: 'on', loc: false,
 };
 
