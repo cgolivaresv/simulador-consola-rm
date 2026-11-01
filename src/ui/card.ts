@@ -3,20 +3,20 @@ import type { ProtocolParams } from '../core/types';
 import { fmtTA } from '../core/util';
 import { derive, SEQLBL, type Derived, type Protocol } from '../physics/protocol';
 import { $ } from './dom';
-import { F, GEO, TABS, fmtVal, getP } from './fields';
+import { F, GEO, TABS, fmtVal, getP, labelOf, optsOf } from './fields';
 import { sel, state } from './state';
 
 function fieldHTML(tab: string, k: string, p: ProtocolParams, d: Derived, ro: boolean): string {
   const f = F[k];
   if (f.show && !f.show(p)) return '';
   if (p.loc && GEO.includes(k)) return '';
-  const id = `f-${tab}-${k}`, dis = ro ? 'disabled' : '';
-  if (f.kind === 'ro') return `<div class="fld"><span class="lbl">${f.l}</span><output class="val ro" id="${id}">${f.ro(p, d)}</output><span class="unit"></span></div>`;
+  const id = `f-${tab}-${k}`, dis = ro ? 'disabled' : '', l = labelOf(f, p);
+  if (f.kind === 'ro') return `<div class="fld"><span class="lbl">${l}</span><output class="val ro" id="${id}">${f.ro(p, d)}</output><span class="unit"></span></div>`;
   if (f.kind === 'sel') {
-    const opts = f.opts.map(([v, t]) => `<option value="${v}" ${String(getP(p, k)) === String(v) ? 'selected' : ''}>${t}</option>`).join('');
-    return `<div class="fld"><label class="lbl" for="${id}">${f.l}</label><select id="${id}" data-k="${k}" ${dis}>${opts}</select><span class="unit"></span></div>`;
+    const opts = optsOf(f, p).map(([v, t]) => `<option value="${v}" ${String(getP(p, k)) === String(v) ? 'selected' : ''}>${t}</option>`).join('');
+    return `<div class="fld"><label class="lbl" for="${id}">${l}</label><select id="${id}" data-k="${k}" ${dis}>${opts}</select><span class="unit"></span></div>`;
   }
-  return `<div class="fld"><label class="lbl" for="${id}">${f.l}</label><div class="num"><input id="${id}" data-k="${k}" value="${fmtVal(k, getP(p, k) as number)}" ${dis} inputmode="decimal" autocomplete="off" spellcheck="false"><span class="spin"><button type="button" data-k="${k}" data-d="1" ${dis} aria-label="Subir ${f.l}"></button><button type="button" data-k="${k}" data-d="-1" ${dis} aria-label="Bajar ${f.l}"></button></span></div><span class="unit">${f.u || ''}</span></div>`;
+  return `<div class="fld"><label class="lbl" for="${id}">${l}</label><div class="num"><input id="${id}" data-k="${k}" value="${fmtVal(k, getP(p, k) as number)}" ${dis} inputmode="decimal" autocomplete="off" spellcheck="false"><span class="spin"><button type="button" data-k="${k}" data-d="1" ${dis} aria-label="Subir ${l}"></button><button type="button" data-k="${k}" data-d="-1" ${dis} aria-label="Bajar ${l}"></button></span></div><span class="unit">${f.u || ''}</span></div>`;
 }
 
 function infoHTML(p: Protocol, d: Derived): string {

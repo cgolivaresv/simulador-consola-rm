@@ -3,7 +3,8 @@ import type { Img, Plane, PlaneGeom, Scan, Vec3 } from '../core/types';
 import { add3, clamp, cross, dot3, f1, fmtTA, norm } from '../core/util';
 import { derive, normalize, type Protocol } from '../physics/protocol';
 import { compute } from '../imaging/engine';
-import { anglesOf, geomLoc, geomSlice, orientText, sliceAxes, type Axes } from '../imaging/geometry';
+import { anglesOf, geomLoc, geomSlice, LOCG, ORI_NAMES, orientText, phaseLabels, sliceAxes, spLabel, type Axes } from '../imaging/geometry';
+import { dirLabel } from '../mpr/mpr';
 import { autoWL } from '../imaging/render';
 import { refreshCardValues, renderCard } from './card';
 import { $, setMsg } from './dom';
@@ -52,15 +53,35 @@ const overlayPatient = (): string => {
 
 function segParams(seg: Seg): { p: Protocol; pp: Scan } | null {
   if (seg.kind === 'preview') { const p = sel(); return p ? { p, pp: previewScan(p) } : null; }
-  if (seg.kind === 'loc') { const p = locDone(); return p?.snap ? { p, pp: p.snap } : null; }
+  if (seg.kind === 'loc') {
+    // a measured series chosen as planning image; falls back to the localizer if it disappeared
+    if (seg.pid !== null) {
+      const q = state.queue.find((x) => x.id === seg.pid && x.state === 'done' && !x.loc);
+      if (q?.snap) return { p: q, pp: q.snap };
+      seg.pid = null;
+    }
+    const p = locDone();
+    return p?.snap ? { p, pp: p.snap } : null;
+  }
   const p = state.queue.find((q) => q.id === seg.pid);
   return p?.snap ? { p, pp: p.snap } : null;
 }
 
+const ORI_WORD = { T: 'Tra', S: 'Sag', C: 'Cor' } as const;
+/** Overlay orientation, e.g. "Sag>Cor(-8.0)>R>>L" style: main plane, angulations, phase direction. */
 const orientTxt = (pp: Scan) => {
-  const f = (v: number) => (v >= 0 ? '' : '-') + Math.abs(v).toFixed(1);
-  return 'Tra' + (pp.tilt ? `>Cor(${f(pp.tilt)})` : '') + (pp.tiltS ? `>Sag(${f(pp.tiltS)})` : '');
+  const f = (v: number) => (v >= 0 ? '' : '-') + Math.abs(v).toFixed(1), N = ORI_NAMES[pp.ori ?? 'tra'];
+  return ORI_WORD[N.main as 'T'] + (pp.tilt ? `>${ORI_WORD[N.a as 'C']}(${f(pp.tilt)})` : '') + (pp.tiltS ? `>${ORI_WORD[N.b as 'S']}(${f(pp.tiltS)})` : '');
 };
+const phaseTxt = (pp: Scan) => phaseLabels(pp.ori ?? 'tra')[pp.phaseDir === 'RL' ? 0 : 1].replace(/ /g, '');
+
+/** Orientation letters on the four image edges, from the plane's axes. */
+function setLetters(seg: Seg, g: PlaneGeom | null): void {
+  const q = (c: string) => seg.el.querySelector<HTMLElement>(`.ori.${c}`);
+  const neg = (a: Vec3): Vec3 => [-a[0], -a[1], -a[2]];
+  const set = (c: string, d: Vec3 | null) => { const e = q(c); if (e) e.textContent = d ? dirLabel(d) : ''; };
+  set('l', g ? neg(g.u) : null); set('r', g ? g.u : null); set('t', g ? neg(g.v) : null); set('b', g ? g.v : null);
+}
 
 /** Recompute a segment. Requests that arrive while one is running collapse into a single follow-up. */
 export async function updateSeg(seg: Seg): Promise<void> {
@@ -84,8 +105,30 @@ async function updateOnce(seg: Seg): Promise<void> {
     return;
   }
   const { p, pp } = sp;
+  const tag = seg.el.querySelector<HTMLElement>('.tag');
+  if (seg.kind === 'loc' && seg.pid !== null) {
+    // planning on a measured series: scroll through its slices like on the scanner
+    seg.slice = clamp(seg.slice, 0, pp.slices - 1);
+    const g = geomSlice(pp, seg.slice), key = `plan|${p.id}|${seg.slice}`;
+    if (key !== seg.key) {
+      const img = await compute(pp, g, p.seed + seg.slice * 101);
+      if (seg.again) return;
+      if (!seg.key.startsWith(`plan|${p.id}|`)) seg.userWL = false;
+      seg.img = img; seg.key = key;
+      if (!seg.userWL) seg.wl = autoWL(img);
+      mapWL(seg);
+    }
+    seg.geom = g;
+    if (tag) tag.textContent = `SE ${p.series}`;
+    setLetters(seg, g);
+    seg.ov[0].textContent = `${overlayPatient()}\nSe: ${p.series}  ${p.name}\nIm: ${seg.slice + 1}/${pp.slices}  SP ${spLabel(g.C, g.n ?? cross(g.u, g.v))}`;
+    seg.ov[1].textContent = `W ${seg.wl.w}\nC ${seg.wl.c}`;
+    drawSeg(seg);
+    return;
+  }
   if (seg.kind === 'loc') {
     const plane = seg.plane!;
+    if (tag) tag.textContent = plane.toUpperCase();
     seg.img = p.locImgs![plane];
     seg.geom = geomLoc(pp, plane);
     if (seg.key !== p.id + plane) { seg.key = p.id + plane; seg.userWL = false; }
@@ -93,6 +136,7 @@ async function updateOnce(seg: Seg): Promise<void> {
     mapWL(seg);
     seg.ov[0].textContent = `${overlayPatient()}\nSe: ${p.series}  ${seg.geom.name}`;
     seg.ov[1].textContent = `W ${seg.wl.w}\nC ${seg.wl.c}`;
+    setLetters(seg, seg.geom);
     drawSeg(seg);
     return;
   }
@@ -111,11 +155,11 @@ async function updateOnce(seg: Seg): Promise<void> {
   const d = derive(pp, pp.B0);
   const fovP = (pp.fovRead * pp.fovPh) / 100;
   const fovStr = pp.phaseDir === 'RL' ? `${Math.round(fovP)}*${pp.fovRead}` : `${pp.fovRead}*${Math.round(fovP)}`;
-  const z = g.C[2];
   const src = replaySource(pp, pp.phantom);
+  setLetters(seg, g);
   seg.ov[0].textContent = `${overlayPatient()}\nHead^Brain`;
   seg.ov[1].textContent = `Resonador ${pp.B0} T\n${seg.kind === 'series' ? 'Se: ' + p.series : 'Protocolo abierto'}\nIm: ${seg.slice + 1}/${nS}\n${new Date().toLocaleDateString('es-CL')}`;
-  seg.ov[2].textContent = `${src ? `Fuente: ${src.desc} (${src.got})\n` : ''}SP ${z >= 0 ? 'H' : 'F'}${Math.abs(z).toFixed(1)}\nSL ${pp.thick.toFixed(1)}\nFoV ${fovStr}\n${pp.loc ? 'Tra' : orientTxt(pp)}>${pp.phaseDir === 'RL' ? 'R>>L' : 'A>>P'}\nTR ${f1(pp.TR)}${pp.prep === 'ir' ? '  TI ' + pp.TI : ''}\nTE ${f1(pp.TE)}${pp.seq === 'gre' ? '  FA ' + pp.FA : ''}${pp.seq === 'epi' ? '  b ' + pp.b : ''}\nTA ${fmtTA(d.TA)}  BW ${pp.bw}\n${pp.name}`;
+  seg.ov[2].textContent = `${src ? `Fuente: ${src.desc} (${src.got})\n` : ''}SP ${spLabel(g.C, g.n ?? cross(g.u, g.v))}\nSL ${pp.thick.toFixed(1)}\nFoV ${fovStr}\n${pp.loc ? 'Tra' : orientTxt(pp)}>${pp.loc ? 'A>>P' : phaseTxt(pp)}\nTR ${f1(pp.TR)}${pp.prep === 'ir' ? '  TI ' + pp.TI : ''}\nTE ${f1(pp.TE)}${pp.seq === 'gre' ? '  FA ' + pp.FA : ''}${pp.seq === 'epi' ? '  b ' + pp.b : ''}\nTA ${fmtTA(d.TA)}  BW ${pp.bw}\n${pp.name}`;
   seg.ov[3].textContent = `W ${seg.wl.w}\nC ${seg.wl.c}`;
   drawSeg(seg);
 }
@@ -302,7 +346,7 @@ const fmtDeg = (v: number) => (v >= 0 ? '' : '-') + Math.abs(v).toFixed(1);
 function rotateGroup(p: Protocol, axes0: Axes, axis: Vec3, angle: number): boolean {
   const c = Math.cos(angle), s = Math.sin(angle), k = norm(axis);
   const rot = (a: Vec3): Vec3 => { const kx = cross(k, a), kd = dot3(k, a); return [0, 1, 2].map((i) => a[i] * c + kx[i] * s + k[i] * kd * (1 - c)) as Vec3; };
-  const ang = anglesOf({ u: rot(axes0.u), v: rot(axes0.v), n: rot(axes0.n) });
+  const ang = anglesOf({ u: rot(axes0.u), v: rot(axes0.v), n: rot(axes0.n) }, p.ori);
   if (Math.abs(ang.tilt) > 45 || Math.abs(ang.tiltS) > 45) return false; // a transverse group stays transverse
   const r2 = (v: number) => Math.round(v * 2) / 2 + 0;
   p.tilt = r2(ang.tilt); p.tiltS = r2(ang.tiltS);
@@ -323,7 +367,29 @@ function planChanged(): void {
   });
 }
 
-export function drawLocs(): void { locSegs.forEach((s) => void updateSeg(s)); }
+export function drawLocs(): void {
+  renderSegSources();
+  locSegs.forEach((s) => void updateSeg(s));
+}
+
+/** Fill each planning segment's chooser: its localizer plane, or any measured series. */
+function renderSegSources(): void {
+  const done = state.queue.filter((q) => q.state === 'done' && !q.loc && q.snap).sort((a, b) => (a.series ?? 0) - (b.series ?? 0));
+  const has = !!locDone();
+  for (const seg of locSegs) {
+    const selEl = seg.el.querySelector<HTMLSelectElement>('.segsrc');
+    if (!selEl) continue;
+    if (seg.pid !== null && !done.some((q) => q.id === seg.pid)) { seg.pid = null; seg.key = ''; }
+    const opts: [string, string][] = [['loc', `Localizer · ${LOCG[seg.plane!].name}`], ...done.map((q) => [String(q.id), `Se ${q.series} · ${q.name}`] as [string, string])];
+    const sig = opts.map((o) => o.join('=')).join('|');
+    if (selEl.dataset.sig !== sig) {
+      selEl.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+      selEl.dataset.sig = sig;
+    }
+    selEl.value = seg.pid === null ? 'loc' : String(seg.pid);
+    selEl.hidden = !has || done.length === 0;
+  }
+}
 
 let rafA = 0;
 export function refreshPreview(): void {
@@ -345,7 +411,7 @@ const lim = (k: string) => F[k] as NumField;
 
 function bindSeg(seg: Seg): void {
   seg.cv.addEventListener('wheel', (e) => {
-    if (seg.kind === 'loc') return;
+    if (seg.kind === 'loc' && seg.pid === null) return;
     e.preventDefault();
     seg.slice += e.deltaY > 0 ? 1 : -1;
     void updateSeg(seg);
@@ -426,6 +492,17 @@ function bindSeg(seg: Seg): void {
 
 export function initViewer(): void {
   allSegs.forEach(bindSeg);
+  for (const seg of locSegs) {
+    const selEl = seg.el.querySelector<HTMLSelectElement>('.segsrc');
+    selEl?.addEventListener('change', () => {
+      seg.pid = selEl.value === 'loc' ? null : Number(selEl.value);
+      const q = state.queue.find((x) => x.id === seg.pid);
+      seg.slice = q?.snap ? Math.floor((q.snap.slices - 1) / 2) : 0;
+      seg.key = ''; seg.userWL = false;
+      void updateSeg(seg);
+      setMsg(seg.pid === null ? `Segmento con el localizer ${LOCG[seg.plane!].name}.` : `Planificando sobre ${q?.name} (serie ${q?.series}). Rueda: cambiar de corte.`, 'ok');
+    });
+  }
   new ResizeObserver(() => allSegs.forEach(drawSeg)).observe($('#viewer'));
 }
 

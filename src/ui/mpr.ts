@@ -493,7 +493,7 @@ async function onFiles(list: FileList | null) {
 /** Example volume: a synthetic 3D T1 gradient echo computed from BrainWeb, so the task works without data. */
 function demoVolume(ph: PhantomData): MprVolume | null {
   if (ph.type !== 'labels') return null;
-  const sig = signals({ name: 'demo', seq: 'gre', loc: false, TR: 11, TE: 4.2, TI: 0, FA: 15, refFA: 0, ETL: 1, bw: 200, nex: 1, slices: 1, thick: 1, dist: 0, pos: 0, offX: 0, offY: 0, tilt: 0, tiltS: 0, rot: 0, fovRead: 256, fovPh: 100, base: 256, phRes: 100, os: 0, phaseDir: 'AP', pat: 1, prep: 'none', fat: 'none', b: 0, rf: 'normal', interp: 'on', B0: 1.5, phantom: 'bw', path: 'normal' });
+  const sig = signals({ name: 'demo', seq: 'gre', loc: false, TR: 11, TE: 4.2, TI: 0, FA: 15, refFA: 0, ETL: 1, bw: 200, nex: 1, slices: 1, thick: 1, dist: 0, pos: 0, offX: 0, offY: 0, tilt: 0, tiltS: 0, rot: 0, ori: 'tra', fovRead: 256, fovPh: 100, base: 256, phRes: 100, os: 0, phaseDir: 'AP', pat: 1, prep: 'none', fat: 'none', b: 0, rf: 'normal', interp: 'on', B0: 1.5, phantom: 'bw', path: 'normal' });
   sig[3] *= 0.6; // MPRAGE-like dark CSF
   const src = ph.vol.data, data = new Int16Array(src.length), r = rng(3);
   for (let i = 0; i < src.length; i++) data[i] = Math.max(0, Math.round(sig[src[i] & 63] * 9000 + (r() - 0.5) * 60));

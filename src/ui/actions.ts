@@ -6,7 +6,7 @@ import { compute } from '../imaging/engine';
 import { geomLoc, geomSlice } from '../imaging/geometry';
 import { renderCard } from './card';
 import { $, setMsg, setScanner } from './dom';
-import { F, coerce, getP, parseNum, setP } from './fields';
+import { F, coerce, getP, labelOf, parseNum, setP } from './fields';
 import { renderQueue } from './queue';
 import { startSound, stopSound } from './sound';
 import { envParams, locDone, phantoms, replaySource, sel, state } from './state';
@@ -42,13 +42,17 @@ export function commit(k: string, v: string | number, focusId?: string): void {
   const p = sel();
   if (!p || p.state !== 'pending') return;
   const f = F[k];
-  if (f.kind === 'sel') setP(p, k, k === 'pat' ? Number(v) : v);
+  if (f.kind === 'sel') {
+    setP(p, k, k === 'pat' ? Number(v) : v);
+    // a new main orientation starts square to the scanner axes
+    if (k === 'ori') { p.tilt = 0; p.tiltS = 0; p.rot = 0; }
+  }
   else if (f.kind === 'num') {
     const n = typeof v === 'number' ? v : parseNum(k, v);
-    if (isNaN(n)) { setMsg(`Valor no válido para ${f.l}.`, 'err'); renderCard(); return; }
+    if (isNaN(n)) { setMsg(`Valor no válido para ${labelOf(f, p)}.`, 'err'); renderCard(); return; }
     setP(p, k, coerce(k, n));
   } else return;
-  afterChange(p, normalize(p), f.l);
+  afterChange(p, normalize(p), labelOf(f, p));
   renderCard(focusId);
   renderQueue();
   refreshPreview();

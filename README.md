@@ -10,6 +10,8 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 
 - **Patient**: worklist de ejemplo (pacientes ficticios) y registro con nombre, ID, fecha de nacimiento, sexo, estatura y peso (obligatorios para el SAR), posición, bobina y programa. Sin registro no se puede entrar a Exam.
 - **Localizer en 3 planos** (sagital, coronal, transversal). Sin localizer medido no se puede medir ningún otro protocolo.
+- **Protocolos transversales, sagitales y coronales**: *Main orientation* por protocolo, con sus angulaciones (T>C/T>S, S>T/S>C, C>T/C>S), rotación del FoV y dirección de fase con las letras de cada plano (R>>L, A>>P, H>>F). La librería incluye T2 y T1 sagitales, T2 y FLAIR coronales y un T2 coronal de hipocampo.
+- **Planificar sobre cualquier serie medida**: cada segmento de planificación tiene un selector para mostrar su localizer o una serie ya medida, que se recorre corte a corte con la rueda. Por ejemplo, el coronal de hipocampo se angula sobre el T2 sagital.
 - **Planificación gráfica del slice group** en los tres localizers: arrastrar para mover (R-L, A-P, F-H) en cualquiera; los puntos de rotación angulan T > C en el sagital y T > S en el coronal, y rotan el FoV en el plano en el transversal, para cortes oblicuos y doble oblicuos. Cada corte se dibuja donde su plano corta el localizer. Caja de FoV, oversampling de fase y dirección de fase en el transversal. Los valores (incluida la orientación tipo «T > C -12.0 > S 4.5») se reflejan en la tarjeta Geometry, donde también se pueden escribir, y la vista previa recalcula los cortes. Botón *Copiar posición* desde la última serie medida.
 - **Cerrar examen**: termina el examen y lo marca como completado en la worklist (estados Programado, En curso, Completado) para seguir con el siguiente paciente, o **empieza desde cero**, borrando también los estudios importados y las series 3D.
 - **Program Library** (Head › Brain) y **Exam Queue** con estados pendiente / midiendo / medido, TA por protocolo y tiempo restante del examen.
@@ -29,7 +31,7 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 
 ## Próximos pasos
 
-1. Protocolos en orientación sagital y coronal, y más sujetos BrainWeb.
+1. Más sujetos BrainWeb y localizers de varios cortes.
 2. Más regiones y protocolos (columna, rodilla, abdomen) y fantomas.
 3. Tarjeta Physio / Inline y bobinas.
 4. Modo instructor con casos y evaluación.

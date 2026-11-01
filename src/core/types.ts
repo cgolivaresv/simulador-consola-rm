@@ -36,6 +36,9 @@ export interface ProtocolParams {
   base: number;
   phRes: number;
   os: number;
+  /** main orientation of the slice group */
+  ori: 'tra' | 'sag' | 'cor';
+  /** phase encoding along the image columns ('RL', horizontal) or rows ('AP', vertical); the letters shown depend on the orientation */
   phaseDir: 'RL' | 'AP';
   pat: number;
   prep: 'none' | 'ir';

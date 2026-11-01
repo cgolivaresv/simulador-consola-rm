@@ -1,15 +1,15 @@
 // Parameter definitions for the protocol card: label, unit, limits, step and visibility.
 import type { ProtocolParams } from '../core/types';
 import { derive, type Derived } from '../physics/protocol';
-import { orientText } from '../imaging/geometry';
+import { ORI_NAMES, orientText, phaseLabels } from '../imaging/geometry';
 
-interface Base { l: string; show?: (p: ProtocolParams) => boolean }
+interface Base { l: string | ((p: ProtocolParams) => string); show?: (p: ProtocolParams) => boolean }
 export interface NumField extends Base { kind: 'num'; u?: string; min: number; max: number; st: number | ((p: ProtocolParams) => number); dec: number }
-export interface SelField extends Base { kind: 'sel'; opts: [string | number, string][] }
+export interface SelField extends Base { kind: 'sel'; opts: [string | number, string][] | ((p: ProtocolParams) => [string | number, string][]) }
 export interface RoField extends Base { kind: 'ro'; ro: (p: ProtocolParams, d: Derived) => string | number }
 export type Field = NumField | SelField | RoField;
 
-const num = (l: string, min: number, max: number, st: NumField['st'], dec: number, u?: string, show?: Base['show']): NumField => ({ kind: 'num', l, min, max, st, dec, u, show });
+const num = (l: Base['l'], min: number, max: number, st: NumField['st'], dec: number, u?: string, show?: Base['show']): NumField => ({ kind: 'num', l, min, max, st, dec, u, show });
 
 export const F: Record<string, Field> = {
   slices: num('Slices', 1, 60, 1, 0),
@@ -17,11 +17,12 @@ export const F: Record<string, Field> = {
   pos: num('Position F-H', -60, 90, 0.5, 1, 'mm'),
   offX: num('Position R-L', -60, 60, 0.5, 1, 'mm'),
   offY: num('Position A-P', -80, 80, 0.5, 1, 'mm'),
-  tilt: num('Angulation T>C', -45, 45, 0.5, 1, 'deg'),
-  tiltS: num('Angulation T>S', -45, 45, 0.5, 1, 'deg'),
+  ori: { kind: 'sel', l: 'Main orientation', opts: [['tra', 'Transversal'], ['sag', 'Sagittal'], ['cor', 'Coronal']] },
+  tilt: num((p) => `Angulation ${ORI_NAMES[p.ori ?? 'tra'].main}>${ORI_NAMES[p.ori ?? 'tra'].a}`, -45, 45, 0.5, 1, 'deg'),
+  tiltS: num((p) => `Angulation ${ORI_NAMES[p.ori ?? 'tra'].main}>${ORI_NAMES[p.ori ?? 'tra'].b}`, -45, 45, 0.5, 1, 'deg'),
   rot: num('Inplane rotation', -180, 180, 0.5, 1, 'deg'),
   orient: { kind: 'ro', l: 'Orientation', ro: (p) => orientText(p) },
-  phaseDir: { kind: 'sel', l: 'Phase enc. dir.', opts: [['RL', 'R >> L'], ['AP', 'A >> P']] },
+  phaseDir: { kind: 'sel', l: 'Phase enc. dir.', opts: (p) => { const [h, v] = phaseLabels(p.ori ?? 'tra'); return [['RL', h], ['AP', v]]; } },
   fovRead: num('FoV read', 100, 300, 5, 0, 'mm'),
   fovPh: num('FoV phase', 50, 100, 3.125, 1, '%'),
   thick: num('Slice thickness', 1, 10, 0.5, 1, 'mm'),
@@ -50,11 +51,11 @@ export const F: Record<string, Field> = {
 };
 
 /** Fields that do not apply to the 3-plane localizer. */
-export const GEO = ['slices', 'dist', 'pos', 'offX', 'offY', 'tilt', 'tiltS', 'rot', 'orient'];
+export const GEO = ['slices', 'dist', 'pos', 'offX', 'offY', 'ori', 'tilt', 'tiltS', 'rot', 'orient'];
 
 export const TABS: Record<string, string[]> = {
-  Routine: ['slices', 'dist', 'pos', 'phaseDir', 'fovRead', 'fovPh', 'thick', 'TR', 'TE', 'nex', 'concat'],
-  Geometry: ['slices', 'dist', 'thick', 'pos', 'offX', 'offY', 'tilt', 'tiltS', 'rot', 'orient', 'phaseDir'],
+  Routine: ['ori', 'slices', 'dist', 'pos', 'phaseDir', 'fovRead', 'fovPh', 'thick', 'TR', 'TE', 'nex', 'concat'],
+  Geometry: ['ori', 'slices', 'dist', 'thick', 'pos', 'offX', 'offY', 'tilt', 'tiltS', 'rot', 'orient', 'phaseDir'],
   Contrast: ['TR', 'TE', 'prep', 'TI', 'FA', 'refFA', 'fat', 'b'],
   Resolution: ['base', 'phRes', 'os', 'pat', 'interp', 'voxel'],
   Sequence: ['bw', 'ETL', 'ES', 'trains', 'epiF', 'rf'],
@@ -100,3 +101,6 @@ export function coerce(k: string, n: number): number {
   if (k === 'base') n = Math.max(64, Math.min(512, Math.round(n / 16) * 16));
   return Math.round(n * 10 ** f.dec) / 10 ** f.dec;
 }
+
+export const labelOf = (f: Field, p: ProtocolParams): string => (typeof f.l === 'function' ? f.l(p) : f.l);
+export const optsOf = (f: SelField, p: ProtocolParams): [string | number, string][] => (typeof f.opts === 'function' ? f.opts(p) : f.opts);

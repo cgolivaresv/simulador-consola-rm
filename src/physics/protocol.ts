@@ -110,7 +110,7 @@ export function normalize(p: ProtocolParams): string[] {
 
 export const BASE: Omit<ProtocolParams, 'name' | 'seq' | 'TR' | 'TE'> = {
   prep: 'none', TI: 2500, FA: 90, refFA: 150, ETL: 1, bw: 200, nex: 1, slices: 20, thick: 5, dist: 30, pos: 12,
-  offX: 0, offY: 0, tilt: 0, tiltS: 0, rot: 0, fovRead: 230, fovPh: 87.5, base: 256, phRes: 75, os: 0, phaseDir: 'RL', pat: 1,
+  offX: 0, offY: 0, tilt: 0, tiltS: 0, rot: 0, ori: 'tra', fovRead: 230, fovPh: 87.5, base: 256, phRes: 75, os: 0, phaseDir: 'RL', pat: 1,
   fat: 'none', b: 0, rf: 'normal', interp: 'on', loc: false,
 };
 
@@ -124,6 +124,11 @@ export const LIB: Template[] = [
   { name: 'ep2d_diff_tra_b1000', seq: 'epi', TR: 5000, TE: 94, bw: 1100, base: 192, phRes: 100, fovPh: 100, pat: 2, nex: 2, b: 1000, fat: 'fs', phaseDir: 'AP' },
   { name: 't2_fl2d_tra_hemo', seq: 'gre', TR: 650, TE: 20, FA: 20, bw: 120 },
   { name: 't1_fl2d_tra', seq: 'gre', TR: 250, TE: 4.8, FA: 70, bw: 260 },
+  { name: 't2_tse_sag', ori: 'sag', seq: 'tse', TR: 4000, TE: 99, ETL: 15, bw: 190, slices: 19, thick: 4, dist: 20, pos: 10, fovRead: 230, fovPh: 100, base: 320, phRes: 75, pat: 2 },
+  { name: 't1_se_sag', ori: 'sag', seq: 'se', TR: 500, TE: 10, bw: 160, slices: 19, thick: 4, dist: 20, pos: 10, fovRead: 230, fovPh: 100 },
+  { name: 't2_tse_cor', ori: 'cor', seq: 'tse', TR: 4000, TE: 99, ETL: 15, bw: 190, slices: 24, thick: 4, dist: 20, pos: 10, fovRead: 230, fovPh: 100, base: 320, phRes: 75, pat: 2 },
+  { name: 't2_tirm_cor_dark-fluid', ori: 'cor', seq: 'tse', prep: 'ir', TR: 9000, TI: 2500, TE: 84, ETL: 16, bw: 260, slices: 24, thick: 4, dist: 20, pos: 10, fovRead: 230, fovPh: 100 },
+  { name: 't2_tse_cor_hippo', ori: 'cor', seq: 'tse', TR: 5000, TE: 100, ETL: 13, bw: 160, slices: 24, thick: 3, dist: 10, pos: -5, offY: 15, fovRead: 180, fovPh: 100, base: 384, phRes: 80 },
 ];
 export const DEFAULT_EXAM = ['localizer', 't2_tse_tra', 't1_se_tra', 't2_tirm_tra_dark-fluid', 'ep2d_diff_tra_b1000', 't2_fl2d_tra_hemo'];
 
