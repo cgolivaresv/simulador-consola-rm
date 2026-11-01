@@ -19,6 +19,7 @@
       <button type="button" id="tExam" aria-pressed="false" disabled>Exam</button>
       <button type="button" id="t3D" aria-pressed="false">3D</button>
     </div>
+    <button type="button" class="tbtn closebtn" id="closeExam">Cerrar examen</button>
     <div class="pat" id="patBar"><span>Sin paciente registrado</span></div>
     <div class="ctl">
       <label for="b0">Campo <select id="b0"><option value="1.5">1.5 T</option><option value="3">3 T</option></select></label>
@@ -34,7 +35,7 @@
     <div class="pcol">
     <section class="panel">
       <div class="ph"><h2>Worklist · Scheduler</h2><span class="path" id="wlDate"></span></div>
-      <div class="wlw"><table class="wl"><thead><tr><th>Paciente</th><th>ID</th><th>Sexo</th><th>Nac.</th><th>Procedimiento</th><th>Hora</th></tr></thead><tbody id="wlBody"></tbody></table></div>
+      <div class="wlw"><table class="wl"><thead><tr><th>Paciente</th><th>ID</th><th>Sexo</th><th>Nac.</th><th>Procedimiento</th><th>Hora</th><th>Estado</th></tr></thead><tbody id="wlBody"></tbody></table></div>
       <div class="wlnote">Lista de trabajo de ejemplo con pacientes ficticios. Al elegir uno se llena el formulario y la patología sigue la indicación del examen; puedes cambiar ambas.</div>
     </section>
     <section class="panel">
@@ -219,6 +220,22 @@
           <div class="snav"><button type="button" data-s="-1" aria-label="Imagen anterior">‹</button><button type="button" data-s="1" aria-label="Imagen siguiente">›</button></div>
           <div class="empty" id="mEmptyRes">Define un rango paralelo y presiona Crear serie</div>
         </div>
+    </div>
+  </div>
+
+  <div class="dlg-back" id="closeDlg" hidden>
+    <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="closeTitle" aria-describedby="closeInfo">
+      <h2 id="closeTitle">Cerrar examen</h2>
+      <p id="closeInfo"></p>
+      <div class="dlg-opt" id="closeNextWrap">
+        <button class="btn go" type="button" id="closeNext">Cerrar y elegir otro paciente</button>
+        <span>Termina el examen y lo marca como completado en la worklist. Los estudios importados y las series 3D se conservan.</span>
+      </div>
+      <div class="dlg-opt">
+        <button class="btn danger" type="button" id="closeAll">Empezar desde cero</button>
+        <span id="closeAllInfo">Borra el examen, los estudios importados de la worklist y las series cargadas en 3D. El simulador queda como recién abierto.</span>
+      </div>
+      <div class="dlg-foot"><button class="btn" type="button" id="closeCancel">Cancelar</button></div>
     </div>
   </div>
 

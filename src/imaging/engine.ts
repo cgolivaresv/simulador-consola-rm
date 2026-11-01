@@ -40,6 +40,12 @@ export function registerPhantom(id: string, phantom: PhantomData): void {
   worker?.postMessage({ type: 'register', id, phantom } satisfies WorkerIn);
 }
 
+/** Free a phantom's voxels in both threads. */
+export function unregisterPhantom(id: string): void {
+  local.delete(id);
+  worker?.postMessage({ type: 'unregister', id } satisfies WorkerIn);
+}
+
 export function compute(pp: Scan, g: PlaneGeom, seed: number): Promise<Img> {
   if (!worker) return Promise.resolve(computePlane(pp, g, seed, local.get(pp.phantom)));
   const req = ++reqId;

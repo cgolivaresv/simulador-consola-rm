@@ -603,6 +603,23 @@ export function initMpr(): void {
   });
 }
 
+/** Forget every loaded volume, reformatted series, measurement and study. */
+export function clearMpr(): void {
+  M.vols = []; M.vol = null; M.results = []; M.res = -1; M.resSlice = 0; M.meas = [];
+  use.clear();
+  studies = 0;
+  $('#mprReport').innerHTML = '';
+  $('#mprState').textContent = 'local';
+  $('#useState').textContent = '';
+  renderList();
+  renderResults();
+  document.querySelectorAll<HTMLElement>('#view3D .mempty').forEach((el) => (el.hidden = false));
+  schedule(false);
+  renderResult();
+}
+
+export const mprCounts = () => ({ volumes: M.vols.filter((v) => v.id !== 'demo').length, studies });
+
 export function showMpr(): void {
   requestAnimationFrame(() => { schedule(false); renderResult(); });
 }

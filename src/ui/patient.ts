@@ -8,7 +8,7 @@ import { phantoms, state } from './state';
 import { allSegs, clearSeries, drawSeg } from './viewer';
 import { showMpr } from './mpr';
 
-export interface WlEntry { last: string; first: string; id: string; sex: string; dob: string; h: number; w: number; ref: string; proc: string; t: string; path: Pathology; phantom?: string }
+export interface WlEntry { last: string; first: string; id: string; sex: string; dob: string; h: number; w: number; ref: string; proc: string; t: string; path: Pathology; phantom?: string; status?: 'active' | 'done' }
 
 const WL: WlEntry[] = [
   { last: 'GONZÁLEZ', first: 'MARÍA', id: '20451', sex: 'F', dob: '1978-03-12', h: 1.62, w: 64, ref: 'Dra. Soto', proc: 'RM cerebro sin contraste', t: '09:00', path: 'normal' },
@@ -16,12 +16,14 @@ const WL: WlEntry[] = [
   { last: 'ROJAS', first: 'CAMILA', id: '20453', sex: 'F', dob: '1990-07-21', h: 1.68, w: 58, ref: 'Dra. Fuentes', proc: 'RM cerebro · control EM', t: '10:20', path: 'ms' },
 ];
 let wlSel = 0;
+let wlActive = -1;
+const STATUS = { active: 'En curso', done: 'Completado' } as const;
 
 const input = (id: string) => $(id) as HTMLInputElement;
 
 export function renderWL(): void {
   $('#wlDate').textContent = new Date().toLocaleDateString('es-CL');
-  $('#wlBody').innerHTML = WL.map((w, i) => `<tr class="${i === wlSel ? 'sel' : ''}" data-i="${i}" tabindex="0"><td>${w.last}^${w.first}</td><td>${w.id}</td><td>${w.sex}</td><td>${w.dob}</td><td>${w.proc}</td><td>${w.t}</td></tr>`).join('');
+  $('#wlBody').innerHTML = WL.map((w, i) => `<tr class="${i === wlSel ? 'sel' : ''}" data-i="${i}" tabindex="0"><td>${w.last}^${w.first}</td><td>${w.id}</td><td>${w.sex}</td><td>${w.dob}</td><td>${w.proc}</td><td>${w.t}</td><td class="st ${w.status ?? ''}">${w.status ? STATUS[w.status] : 'Programado'}</td></tr>`).join('');
 }
 
 export function fillForm(i: number): void {
@@ -38,10 +40,16 @@ export function fillForm(i: number): void {
   renderWL();
 }
 
-/** Add a patient for an imported study and select it. Identifiers are placeholders: the study was anonymized on load. */
-export function addWorklistEntry(e: WlEntry): void {
+/**
+ * Add a patient for an imported study. Identifiers are placeholders: the study was anonymized on load.
+ * It is selected right away only when no exam is open, so an exam in progress never changes anatomy.
+ * Returns true when it was selected.
+ */
+export function addWorklistEntry(e: WlEntry): boolean {
   WL.push(e);
+  if (state.patient) { renderWL(); return false; }
   fillForm(WL.length - 1);
+  return true;
 }
 
 export function register(): void {
@@ -63,6 +71,10 @@ export function register(): void {
   });
   $('#patBar').innerHTML = `<span><b>${esc(P.last)}^${esc(P.first)}</b></span><span>ID ${esc(P.id)}</span><span>${P.sex} · ${P.age}a · ${P.w} kg · ${P.h.toFixed(2)} m</span><span>Head First-Supine</span><span>Head/Neck 20</span>`;
   resetScanner();
+  if (wlActive >= 0 && WL[wlActive]?.status === 'active') WL[wlActive].status = undefined;
+  wlActive = wlSel;
+  WL[wlSel].status = 'active';
+  renderWL();
   state.series = 0;
   state.queue = DEFAULT_EXAM.map((n) => newProt(LIB.find((t) => t.name === n)!));
   clearSeries();
@@ -91,3 +103,29 @@ export function showView(v: View): void {
   if (v === 'exam') requestAnimationFrame(() => allSegs.forEach(drawSeg));
   if (v === '3d') showMpr();
 }
+
+/**
+ * End the current exam. The worklist entry is marked completed and the console goes back to the
+ * Patient task with the next scheduled patient selected. With removeImported, imported studies leave the worklist too.
+ */
+export function closeExam(removeImported: boolean): void {
+  resetScanner();
+  if (wlActive >= 0 && WL[wlActive]) WL[wlActive].status = state.queue.some((p) => p.state === 'done') ? 'done' : undefined;
+  wlActive = -1;
+  state.patient = null;
+  state.queue = [];
+  state.selId = null;
+  state.series = 0;
+  $('#patBar').innerHTML = '<span>Sin paciente registrado</span>';
+  ($('#tExam') as HTMLButtonElement).disabled = true;
+  clearSeries();
+  if (removeImported) {
+    for (let i = WL.length - 1; i >= 0; i--) if (WL[i].phantom) WL.splice(i, 1);
+    for (const w of WL) w.status = undefined;
+  }
+  showView('patient');
+  const next = WL.findIndex((w) => !w.status);
+  fillForm(next >= 0 ? next : 0);
+}
+
+export const examSummary = () => ({ patient: state.patient, done: state.queue.filter((p) => p.state === 'done').length, pending: state.queue.filter((p) => p.state !== 'done').length, running: !!state.running });
