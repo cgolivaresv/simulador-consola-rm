@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Simulador Consola RM</title>
+<meta name="description" content="Simulador de entrenamiento de consola de resonancia magnética: protocolo, planificación y física de contraste en el navegador.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+  <script type="module" crossorigin src="./assets/index-DQZ0TGA4.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CAs_tkIM.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>MR Console</b><span>Simulador de entrenamiento</span></div>
+    <div class="task" aria-label="Tarea">
+      <button type="button" id="tPatient" aria-pressed="true">Patient</button>
+      <button type="button" id="tExam" aria-pressed="false" disabled>Exam</button>
+      <button type="button" id="t3D" aria-pressed="false">3D</button>
+    </div>
+    <button type="button" class="tbtn closebtn" id="closeExam">Cerrar examen</button>
+    <div class="pat" id="patBar"><span>Sin paciente registrado</span></div>
+    <div class="ctl">
+      <label for="b0">Campo <select id="b0"><option value="1.5">1.5 T</option><option value="3">3 T</option></select></label>
+      <label for="phantom">Fantoma <select id="phantom"><option value="geo">Geométrico</option><option value="bw" disabled>BrainWeb · anatomía real (cargando…)</option></select></label>
+      <label for="path">Patología <select id="path"><option value="normal">Ninguna</option><option value="ms">Lesiones de sustancia blanca (EM)</option><option value="stroke">Infarto agudo ACM izquierda</option></select></label>
+      <button class="tbtn" id="snd" aria-pressed="false" type="button">Ruido gradientes</button>
+      <div class="state" id="state"><i></i><span id="stateTxt">Ready</span></div>
+      <span class="ver" id="appVer"></span>
+    </div>
+  </header>
+
+  <!-- PATIENT TASK -->
+  <div class="ptask" id="viewPatient">
+    <div class="pcol">
+    <section class="panel">
+      <div class="ph"><h2>Worklist · Scheduler</h2><span class="path" id="wlDate"></span></div>
+      <div class="wlw"><table class="wl"><thead><tr><th>Paciente</th><th>ID</th><th>Sexo</th><th>Nac.</th><th>Procedimiento</th><th>Hora</th><th>Estado</th></tr></thead><tbody id="wlBody"></tbody></table></div>
+      <div class="wlnote">Lista de trabajo de ejemplo con pacientes ficticios. Al elegir uno se llena el formulario y la patología sigue la indicación del examen; puedes cambiar ambas.</div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>Fantoma · Datos propios</h2><span class="path" id="impState">local</span></div>
+      <div class="imp">
+        <p>Carga mapas cuantitativos T1, T2 y PD (por ejemplo MAGiC/MDME) o una segmentación de tejidos (FreeSurfer, SynthSeg o FSL FAST), en DICOM sin comprimir o NIfTI. Todo se procesa en este navegador: los archivos no se suben a ningún servidor y los datos identificatorios se descartan al leerlos.</p>
+        <div class="row">
+          <span class="btn filebtn">Elegir archivos<input type="file" id="impFiles" multiple aria-label="Elegir archivos DICOM o NIfTI"></span>
+          <span class="btn filebtn">Elegir carpeta<input type="file" id="impDir" webkitdirectory multiple aria-label="Elegir carpeta DICOM"></span>
+          <label class="chk" for="impDeface"><input type="checkbox" id="impDeface" checked> Ocultar rostro (defacing simple)</label>
+        </div>
+        <div id="impOut"></div>
+      </div>
+    </section>
+    </div>
+    <section class="panel">
+      <div class="ph"><h2>Patient Registration</h2><span class="path">Head › Brain</span></div>
+      <form class="reg" id="regForm" novalidate>
+        <div class="fld"><label class="lbl" for="rLast">Last name</label><input id="rLast" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rFirst">First name</label><input id="rFirst" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rId">Patient ID</label><input id="rId" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rDob">Date of birth</label><input id="rDob" type="date"></div>
+        <div class="fld"><label class="lbl" for="rSex">Sex</label><select id="rSex"><option value="F">Female</option><option value="M">Male</option><option value="O">Other</option></select></div>
+        <div class="fld"><label class="lbl" for="rHeight">Height (m)</label><input id="rHeight" inputmode="decimal"></div>
+        <div class="fld"><label class="lbl" for="rWeight">Weight (kg)</label><input id="rWeight" inputmode="decimal"></div>
+        <div class="fld"><label class="lbl" for="rRef">Referring phys.</label><input id="rRef" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rProc">Procedure</label><input id="rProc" autocomplete="off"></div>
+        <div class="fld"><label class="lbl" for="rPos">Patient position</label><select id="rPos"><option>Head First-Supine</option></select></div>
+        <div class="fld"><label class="lbl" for="rCoil">Coil</label><select id="rCoil"><option>Head/Neck 20</option></select></div>
+        <div class="fld"><label class="lbl" for="rProg">Program</label><select id="rProg"><option>Head › Brain › Routine</option></select></div>
+      </form>
+      <div class="regact"><span id="regHint">Peso y estatura son obligatorios: el sistema los usa para el SAR.</span><button class="btn go" id="regBtn" type="button">Exam</button></div>
+    </section>
+  </div>
+
+  <!-- EXAM TASK -->
+  <div class="main" id="viewExam" hidden>
+    <aside class="left">
+      <section class="panel">
+        <div class="ph"><h2>Program Library</h2><span class="path">Head › Brain</span></div>
+        <ul class="lib" id="lib"></ul>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Exam Queue</h2><span class="path" id="qcount"></span></div>
+        <ul class="queue" id="queue"></ul>
+        <div class="qfoot"><span id="qtime">—</span><span id="qnow"></span></div>
+        <div class="qact">
+          <button class="btn" id="rep" type="button">Repetir</button>
+          <button class="btn" id="cpy" type="button" title="Copia posición y angulación de la última serie medida">Copiar posición</button>
+          <button class="btn" id="del" type="button">Eliminar</button>
+        </div>
+      </section>
+    </aside>
+
+    <section class="right">
+      <div class="viewer" id="viewer">
+        <div class="seg loc" id="segSag"><canvas aria-label="Localizer sagital"></canvas><span class="tag lc">SAG</span><select class="segsrc" id="srcSag" aria-label="Imagen para planificar en este segmento" hidden></select>
+          <div class="ov tl"></div><div class="ov br"></div><span class="ori l">A</span><span class="ori r">P</span><span class="ori t">H</span><span class="ori b">F</span><div class="empty">Mide el localizer</div></div>
+        <div class="seg loc" id="segCor"><canvas aria-label="Localizer coronal"></canvas><span class="tag lc">COR</span><select class="segsrc" id="srcCor" aria-label="Imagen para planificar en este segmento" hidden></select>
+          <div class="ov tl"></div><div class="ov br"></div><span class="ori l">R</span><span class="ori r">L</span><span class="ori t">H</span><span class="ori b">F</span><div class="empty">Mide el localizer</div></div>
+        <div class="seg loc" id="segTra"><canvas aria-label="Localizer transversal"></canvas><span class="tag lc">TRA</span><select class="segsrc" id="srcTra" aria-label="Imagen para planificar en este segmento" hidden></select>
+          <div class="ov tl"></div><div class="ov br"></div><span class="ori l">R</span><span class="ori r">L</span><span class="ori t">A</span><span class="ori b">P</span><div class="empty">Mide el localizer</div></div>
+        <div class="seg big act" id="segA">
+          <canvas aria-label="Vista previa del protocolo abierto"></canvas>
+          <span class="tag">VISTA PREVIA</span>
+          <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
+          <span class="ori l">R</span><span class="ori r">L</span><span class="ori t">A</span><span class="ori b">P</span>
+          <div class="snav"><button type="button" data-s="-1" aria-label="Corte anterior">‹</button><button type="button" data-s="1" aria-label="Corte siguiente">›</button></div>
+        </div>
+        <div class="seg big" id="segB">
+          <canvas aria-label="Serie adquirida"></canvas>
+          <span class="tag ser">SERIE</span>
+          <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
+          <span class="ori l">R</span><span class="ori r">L</span><span class="ori t">A</span><span class="ori b">P</span>
+          <div class="snav"><button type="button" data-s="-1" aria-label="Corte anterior">‹</button><button type="button" data-s="1" aria-label="Corte siguiente">›</button></div>
+          <div class="empty" id="emptyB">Sin serie medida</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="chead">
+          <div class="pname"><span id="pname">—</span><span class="badge" id="pbadge"></span></div>
+          <div class="tabs" role="tablist" id="tabs"></div>
+        </div>
+        <div class="cbody" id="cbody"></div>
+        <div class="info" id="info"></div>
+      </div>
+    </section>
+  </div>
+
+
+  <!-- 3D TASK -->
+  <div class="mprtask" id="view3D" hidden>
+    <aside class="left mleft">
+      <section class="panel">
+        <div class="ph"><h2>Series volumétricas</h2><span class="path" id="mprState">local</span></div>
+        <div class="imp">
+          <p>Carga la carpeta de una adquisición 3D (T1 MPRAGE, SPACE, CUBE, FLAIR 3D…) en DICOM o NIfTI. Se lee y anonimiza en este navegador: los archivos no se suben a ningún lado.</p>
+          <div class="row">
+            <span class="btn filebtn">Elegir carpeta<input type="file" id="mprDir" webkitdirectory multiple aria-label="Elegir carpeta con la serie"></span>
+            <span class="btn filebtn">Elegir archivos<input type="file" id="mprFiles" multiple aria-label="Elegir archivos DICOM o NIfTI"></span>
+            <button class="btn" type="button" id="mprDemo" disabled>Ejemplo</button>
+          </div>
+          <div id="mprReport"></div>
+          <ul class="vlist" id="mprList"></ul>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Usar en el examen</h2><span class="path" id="useState"></span></div>
+        <div class="muse">
+          <p id="useIntro">Carga series para convertirlas en un paciente de la consola.</p>
+          <table class="sertab" id="useTable" hidden><thead><tr><th><span class="sr">Usar</span></th><th>Serie</th><th>Potenciación</th></tr></thead><tbody id="useBody"></tbody></table>
+          <fieldset class="modes" id="useModes" hidden>
+            <legend class="lbl">Modo</legend>
+            <label class="chk" for="useReplay"><input type="radio" name="useMode" id="useReplay" value="replay" checked> <span><b>Anatomía real.</b> Cada protocolo muestra la serie con su potenciación; conserva la patología del paciente.</span></label>
+            <label class="chk" for="useSynth"><input type="radio" name="useMode" id="useSynth" value="synthetic"> <span><b>Contraste sintético.</b> Clasifica tejidos y TR, TE y TI cambian el contraste. Requiere T1 3D; mejor con T2 y FLAIR.</span></label>
+          </fieldset>
+          <div class="row"><button class="btn go" id="useCreate" type="button" disabled>Crear paciente</button></div>
+          <p class="hint" id="useHint"></p>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Herramientas</h2></div>
+        <div class="mtools" id="mprTools">
+          <div class="tgroup" role="group" aria-label="Herramienta">
+            <button type="button" class="tbtn" data-tool="cross" aria-pressed="true" title="Mover la cruz, arrastrar líneas o rotar con los puntos">Cruz</button>
+            <button type="button" class="tbtn" data-tool="wl" aria-pressed="false" title="Ventana: ←→ ancho, ↑↓ centro">Ventana</button>
+            <button type="button" class="tbtn" data-tool="zoom" aria-pressed="false">Zoom</button>
+            <button type="button" class="tbtn" data-tool="pan" aria-pressed="false">Mover</button>
+            <button type="button" class="tbtn" data-tool="measure" aria-pressed="false">Distancia</button>
+          </div>
+          <div class="slabrow">
+            <label class="lbl" for="mprMode">Slab</label>
+            <select id="mprMode"><option value="mpr">MPR</option><option value="mip">MIP</option><option value="minip">MinIP</option><option value="avg">Promedio</option></select>
+            <span class="num"><input id="mprThick" value="10.0" inputmode="decimal" disabled aria-label="Grosor del slab en mm"></span><span class="unit">mm</span>
+          </div>
+          <div class="row">
+            <button class="btn" type="button" id="mprReset">Restablecer</button>
+            <button class="btn" type="button" id="mprClearMeas">Borrar mediciones</button>
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="ph"><h2>Rango paralelo</h2><span class="path" id="rgCover"></span></div>
+        <div class="mrange">
+          <div class="fld"><label class="lbl" for="rgBase">Plano</label><select id="rgBase"><option value="tra">Tra (azul)</option><option value="sag">Sag (amarillo)</option><option value="cor" selected>Cor (verde)</option></select><span></span></div>
+          <div class="fld"><label class="lbl" for="rgCount">Imágenes</label><span class="num"><input id="rgCount" value="25" inputmode="numeric"></span><span class="unit"></span></div>
+          <div class="fld"><label class="lbl" for="rgThick">Grosor</label><span class="num"><input id="rgThick" value="3.0" inputmode="decimal"></span><span class="unit">mm</span></div>
+          <div class="fld"><label class="lbl" for="rgSpacing">Distancia</label><span class="num"><input id="rgSpacing" value="3.5" inputmode="decimal"></span><span class="unit">mm</span></div>
+          <div class="row"><label class="chk" for="rgShow"><input type="checkbox" id="rgShow" checked> Mostrar en los otros planos</label><button class="btn go" type="button" id="rgCreate">Crear serie</button></div>
+          <ul class="vlist rlist" id="mprResults"></ul>
+        </div>
+      </section>
+    </aside>
+    <div class="mview" id="mprGrid">
+        <div class="seg mseg " id="mTra">
+          <canvas aria-label="TRA"></canvas>
+          <span class="tag lc">TRA</span>
+          <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
+          <span class="ori l"></span><span class="ori r"></span><span class="ori t"></span><span class="ori b"></span>
+          <div class="empty mempty">Carga una serie o el ejemplo</div>
+        </div>
+        <div class="seg mseg " id="mSag">
+          <canvas aria-label="SAG"></canvas>
+          <span class="tag lc">SAG</span>
+          <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
+          <span class="ori l"></span><span class="ori r"></span><span class="ori t"></span><span class="ori b"></span>
+          <div class="empty mempty">Carga una serie o el ejemplo</div>
+        </div>
+        <div class="seg mseg " id="mCor">
+          <canvas aria-label="COR"></canvas>
+          <span class="tag lc">COR</span>
+          <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
+          <span class="ori l"></span><span class="ori r"></span><span class="ori t"></span><span class="ori b"></span>
+          <div class="empty mempty">Carga una serie o el ejemplo</div>
+        </div>
+        <div class="seg mseg " id="mRes">
+          <canvas aria-label="RESULTADO"></canvas>
+          <span class="tag lc">RESULTADO</span>
+          <div class="ov tl"></div><div class="ov tr"></div><div class="ov bl"></div><div class="ov br"></div>
+          <span class="ori l"></span><span class="ori r"></span><span class="ori t"></span><span class="ori b"></span>
+          <div class="snav"><button type="button" data-s="-1" aria-label="Imagen anterior">‹</button><button type="button" data-s="1" aria-label="Imagen siguiente">›</button></div>
+          <div class="empty" id="mEmptyRes">Define un rango paralelo y presiona Crear serie</div>
+        </div>
+    </div>
+  </div>
+
+  <div class="dlg-back" id="closeDlg" hidden>
+    <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="closeTitle" aria-describedby="closeInfo">
+      <h2 id="closeTitle">Cerrar examen</h2>
+      <p id="closeInfo"></p>
+      <div class="dlg-opt" id="closeNextWrap">
+        <button class="btn go" type="button" id="closeNext">Cerrar y elegir otro paciente</button>
+        <span>Termina el examen y lo marca como completado en la worklist. Los estudios importados y las series 3D se conservan.</span>
+      </div>
+      <div class="dlg-opt">
+        <button class="btn danger" type="button" id="closeAll">Empezar desde cero</button>
+        <span id="closeAllInfo">Borra el examen, los estudios importados de la worklist y las series cargadas en 3D. El simulador queda como recién abierto.</span>
+      </div>
+      <div class="dlg-foot"><button class="btn" type="button" id="closeCancel">Cancelar</button></div>
+    </div>
+  </div>
+
+  <footer class="status">
+    <span class="msg" id="msg">Ready.</span>
+    <span class="help" id="help">Elige un paciente de la worklist o completa el registro y presiona Exam.</span>
+  </footer>
+</div>
+</body>
+</html>
