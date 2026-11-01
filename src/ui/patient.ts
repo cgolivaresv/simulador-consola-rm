@@ -6,6 +6,7 @@ import { age } from './age';
 import { $, esc, setMsg } from './dom';
 import { state } from './state';
 import { allSegs, clearSeries, drawSeg } from './viewer';
+import { showMpr } from './mpr';
 
 interface WlEntry { last: string; first: string; id: string; sex: string; dob: string; h: number; w: number; ref: string; proc: string; t: string; path: Pathology }
 
@@ -62,14 +63,22 @@ export function register(): void {
   setMsg(`Paciente ${P.last}^${P.first} registrado. Paso 1: mide el localizer con Go.`, 'ok');
 }
 
-export function showView(v: 'patient' | 'exam'): void {
+export type View = 'patient' | 'exam' | '3d';
+const HELP: Record<View, string> = {
+  patient: 'Elige un paciente de la worklist o completa el registro y presiona Exam.',
+  exam: 'Localizers: arrastra el slice group para moverlo, el punto para angular · Imágenes: arrastra ←→ ventana, ↑↓ centro · rueda o ‹ › corte · doble clic ventana automática',
+  '3d': 'Cruz: arrastra el centro o una línea para mover planos, los puntos para rotar · rueda: avanzar · Ctrl+rueda: zoom · botón derecho: ventana · doble clic: restablecer vista',
+};
+
+export function showView(v: View): void {
   state.view = v;
   $('#viewPatient').hidden = v !== 'patient';
   $('#viewExam').hidden = v !== 'exam';
+  $('#view3D').hidden = v !== '3d';
   $('#tPatient').setAttribute('aria-pressed', String(v === 'patient'));
   $('#tExam').setAttribute('aria-pressed', String(v === 'exam'));
-  $('#help').textContent = v === 'patient'
-    ? 'Elige un paciente de la worklist o completa el registro y presiona Exam.'
-    : 'Localizers: arrastra el slice group para moverlo, el punto para angular · Imágenes: arrastra ←→ ventana, ↑↓ centro · rueda o ‹ › corte · doble clic ventana automática';
+  $('#t3D').setAttribute('aria-pressed', String(v === '3d'));
+  $('#help').textContent = HELP[v];
   if (v === 'exam') requestAnimationFrame(() => allSegs.forEach(drawSeg));
+  if (v === '3d') showMpr();
 }

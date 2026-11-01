@@ -26,7 +26,7 @@ export const state = {
   running: null as Protocol | null,
   tab: 'Routine',
   patient: null as Patient | null,
-  view: 'patient' as 'patient' | 'exam',
+  view: 'patient' as 'patient' | 'exam' | '3d',
 };
 
 /** Names of the phantoms the console can scan, by id. The voxel data lives in the imaging engine. */

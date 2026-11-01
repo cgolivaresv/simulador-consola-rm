@@ -2,7 +2,7 @@
   "name": "simulador-consola-rm",
   "private": true,
   "version": "0.4.0",
-  "description": "Simulador de entrenamiento de consola de resonancia magn\u00e9tica",
+  "description": "Simulador de entrenamiento de consola de resonancia magnética",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "dicom-parser": "1.8.21"
+    "@cornerstonejs/codec-charls": "^1.2.7",
+    "@cornerstonejs/codec-openjpeg": "^1.3.6",
+    "dicom-parser": "1.8.21",
+    "jpeg-lossless-decoder-js": "^2.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

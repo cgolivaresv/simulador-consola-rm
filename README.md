@@ -18,6 +18,7 @@ Simulador de entrenamiento de una consola de resonancia magnética, inspirado en
 - **Vista previa en vivo** del protocolo abierto y **segmento de serie** con las imágenes medidas: ventana/centro arrastrando, rueda para cortes, doble clic para ventana automática, overlays SP/SL/FoV/TR/TE/TA.
 - **Fantoma BrainWeb (anatomía real)** por defecto: cerebro segmentado a 1 mm con grasa, músculo, hueso, LCR, sustancias gris y blanca y vasos (vacío de flujo en spin echo, señal de entrada en gradient echo). Patologías precalculadas sobre esa anatomía: carga lesional de EM (periventriculares tipo dedos de Dawson, yuxtacorticales, infratentoriales) e infarto agudo de ACM izquierda con restricción en difusión.
 - **Datos propios, procesados solo en el navegador**: mapas cuantitativos T1/T2/PD (por ejemplo MAGiC/MDME) o segmentaciones (FreeSurfer, SynthSeg, FSL FAST) en DICOM sin comprimir o NIfTI. Al leerlos se descartan nombre, ID, fechas, institución, médicos, UIDs y tags privados, con un informe de lo encontrado; opción de *defacing* simple. Nada se sube a ningún servidor.
+- **Tarea 3D (MPR) con adquisiciones reales**: carga la carpeta de una serie volumétrica (T1 MPRAGE, SPACE, CUBE, FLAIR 3D…) en DICOM clásico, multiframe Enhanced MR o NIfTI. Lee DICOM sin compresión, RLE, JPEG Lossless, JPEG 2000 (incluido HTJ2K) y JPEG-LS; separa ecos, dinámicos y stacks en volúmenes distintos y avisa si los cortes no son volumétricos o el espaciado es irregular. Tres planos con cruz enlazada: mover el centro, desplazar planos arrastrando su línea, rotar con los puntos para planos oblicuos y doble oblicuos (la vista donde rotas se mantiene derecha), avanzar con la rueda. Slab MPR, MIP, MinIP y promedio; ventana enlazada, zoom, desplazamiento y medición de distancia. **Rangos paralelos** para crear series reformateadas (por ejemplo coronales de 3 mm cada 3,5 mm) que se revisan en el cuarto segmento. Todo se procesa en el navegador: los datos identificatorios se descartan al leer y nada se sube a ningún servidor. Incluye un volumen de ejemplo T1 3D sintético hecho con BrainWeb.
 - **Fantoma geométrico 3D** alternativo (cuero cabelludo, díploe, LCR, corteza con surcos, sustancia blanca, ventrículos, núcleos basales, fosa posterior, órbitas) con patologías: lesiones de sustancia blanca tipo EM e infarto agudo de ACM izquierda.
 - **Física**: ecuaciones de señal SE/TSE, IR (FLAIR/STIR), GRE (FLASH) y EPI de difusión (b, ADC); ruido Rician según SNR; aliasing (wrap-around) al reducir FoV phase; ghost N/2 en EPI; supresión grasa; 1.5 T y 3 T. Las imágenes se calculan en un Web Worker, así la interfaz no se traba al planificar.
 
@@ -51,13 +52,18 @@ src/physics/               Tabla de tejidos, timing/SNR/SAR del protocolo, ecuac
 src/phantom/               Fantoma geométrico, BrainWeb y muestreo de volúmenes
 src/imaging/               Geometría de cortes, reconstrucción y Web Worker
 src/importer/              Lectura DICOM (dicom-parser) y NIfTI, anonimización, armado de fantomas
-src/ui/                    Tarjeta de parámetros, cola, visor y planificación, medición, paciente
+src/volume/                Series volumétricas: decodificadores, DICOM clásico y multiframe, armado de volúmenes
+src/mpr/                   Geometría MPR, planos oblicuos, reformateo con slab, rangos paralelos
+src/ui/                    Tarjeta de parámetros, cola, visor y planificación, medición, paciente, tarea 3D
 public/brainweb.gz.txt     Fantoma BrainWeb a 1 mm (gzip + base64, ~730 KB)
 test/                      Pruebas (Vitest); test/fixtures tiene DICOM falsos con datos inventados
 tools/prep_brainweb.py     Script que genera brainweb.gz.txt
+tools/make_volume_fixtures.py  Genera las series de prueba en cada compresión (pydicom + GDCM)
 ```
 
 ## Créditos
+
+- Decodificadores: [dicom-parser](https://github.com/cornerstonejs/dicomParser), [OpenJPEG](https://github.com/cornerstonejs/codecs) y [CharLS](https://github.com/cornerstonejs/codecs) compilados a WebAssembly por Cornerstone, y [jpeg-lossless-decoder-js](https://github.com/rii-mango/JPEGLosslessDecoderJS) (licencias MIT).
 
 - Anatomía: **BrainWeb**, McConnell Brain Imaging Centre (MNI). Cocosco CA, Kollokian V, Kwan RK-S, Evans AC. *BrainWeb: Online Interface to a 3D MRI Simulated Brain Database*. NeuroImage 1997;5(4):S425. Collins DL et al. *Design and construction of a realistic digital brain phantom*. IEEE TMI 1998;17(3):463-468.
 - Volumen de etiquetas obtenido del fantoma 3D incluido en [KomaMRI.jl](https://github.com/JuliaHealth/KomaMRI.jl) (licencia MIT). Castillo-Passi C et al. *KomaMRI.jl: An open-source framework for general MRI simulations with GPU acceleration*. Magn Reson Med 2023.

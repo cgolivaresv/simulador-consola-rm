@@ -14,6 +14,7 @@ import { renderLib, renderQueue } from './ui/queue';
 import { startSound, stopSound } from './ui/sound';
 import { lastGeoSeries, locDone, phantoms, sel, state } from './ui/state';
 import { drawLocs, initViewer, refreshPreview } from './ui/viewer';
+import { initMpr, setDemoSource } from './ui/mpr';
 
 const on = <K extends keyof HTMLElementEventMap>(sel: string, ev: K, fn: (e: HTMLElementEventMap[K]) => void) => $(sel).addEventListener(ev, fn);
 const target = (e: Event) => e.target as HTMLElement;
@@ -22,6 +23,7 @@ const sarOver = (p: Protocol): boolean => derive(p, state.B0).sar > 100;
 /* tasks and patient */
 on('#tPatient', 'click', () => showView('patient'));
 on('#tExam', 'click', () => { if (state.patient) showView('exam'); });
+on('#t3D', 'click', () => showView('3d'));
 on('#wlBody', 'click', (e) => { const tr = target(e).closest('tr'); if (tr) fillForm(Number(tr.dataset.i)); });
 on('#wlBody', 'keydown', (e) => { if (e.key === 'Enter') { const tr = target(e).closest('tr'); if (tr) fillForm(Number(tr.dataset.i)); } });
 on('#regBtn', 'click', register);
@@ -115,6 +117,7 @@ async function initBrainWeb() {
   try {
     const ph = await loadBrainWeb(`${import.meta.env.BASE_URL}brainweb.gz.txt`);
     registerPhantom('bw', ph);
+    setDemoSource(ph);
     phantoms.set('bw', { name: 'BrainWeb · anatomía real', imported: false, ready: true });
     addPhantomOption('bw');
     if (state.phantom === 'geo' && !locDone()) { state.phantom = 'bw'; ($('#phantom') as HTMLSelectElement).value = 'bw'; refreshPreview(); }
@@ -126,6 +129,7 @@ async function initBrainWeb() {
 }
 
 initViewer();
+initMpr();
 renderLib();
 renderWL();
 fillForm(0);
