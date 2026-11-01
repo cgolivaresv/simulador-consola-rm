@@ -203,6 +203,10 @@ async function initBrainWeb() {
   }
 }
 
+const ver = $('#appVer');
+ver.textContent = `v${__APP_VERSION__}`;
+ver.title = `Versión ${__APP_VERSION__}${__APP_COMMIT__ ? ` · commit ${__APP_COMMIT__}` : ''} · compilada el ${__APP_DATE__}`;
+
 initViewer();
 initMpr();
 renderLib();

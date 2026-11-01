@@ -47,6 +47,8 @@ npm test           # pruebas de física, geometría, BrainWeb e importación
 npm run build      # verifica tipos y genera dist/
 ```
 
+La versión que muestra la consola (esquina superior derecha) sale de `version` en `package.json`; al pasar el mouse se ven el commit y la fecha de compilación. Súbela con cada entrega: el tercer número para correcciones, el segundo para funciones nuevas.
+
 Cada push a `main` corre las pruebas, compila y publica `dist/` en la rama `gh-pages` (GitHub Actions, `.github/workflows/publicar.yml`). Si una prueba falla, no se publica.
 
 ## Estructura

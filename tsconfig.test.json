@@ -8,6 +8,7 @@
   },
   "include": [
     "test",
-    "src"
+    "src",
+    "vite.config.ts"
   ]
 }
